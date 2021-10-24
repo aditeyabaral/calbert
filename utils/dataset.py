@@ -2,7 +2,7 @@ import os
 import sys
 import preprocessing
 
-files = ["../data/" + p for p in os.listdir("../data/") if p.endswith(".json")]
+files = ["../data/sources/converted" + p for p in os.listdir("../data/sources/converted") if p.endswith(".json")]
 
 df_list = list()
 for f in files:
@@ -13,4 +13,4 @@ for f in files:
     print(f"{f} CONVERTED")
 
 final_df = preprocessing.createMergedDataFrame(df_list)
-final_df.to_csv("merged.csv", index=False)
+final_df.to_csv("../data/merged.csv", index=False)
