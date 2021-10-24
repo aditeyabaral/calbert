@@ -5,7 +5,7 @@ import json
 import traceback
 from nltk.tokenize import sent_tokenize
 
-files = ["../data/sources/" + f for f in sys.argv[1:]]
+files = ["../data/sources/raw/" + f for f in sys.argv[1:]]
 total_files = len(files)
 
 failures = 0
