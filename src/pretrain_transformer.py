@@ -4,9 +4,9 @@ nltk.download("punkt")
 import os
 import sys
 import pandas as pd
-from transformers import RobertaTokenizerFast, BertTokenizerFast, DistilBertTokenizerFast, GPT2TokenizerFast
-from transformers import BertForMaskedLM, RobertaForMaskedLM, DistilBertForMaskedLM, GPT2LMHeadModel
-from transformers import RobertaConfig, BertConfig, DistilBertConfig, GPT2Config
+from transformers import RobertaTokenizerFast, BertTokenizerFast, DistilBertTokenizerFast #, GPT2Tokenizer 
+from transformers import BertForMaskedLM, RobertaForMaskedLM, DistilBertForMaskedLM       #, GPT2LMHeadModel
+from transformers import RobertaConfig, BertConfig, DistilBertConfig                      # , GPT2Config
 from transformers import AdamW
 import torch
 from tqdm.auto import tqdm
