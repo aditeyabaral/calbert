@@ -4,7 +4,7 @@ import pandas as pd
 from tokenizers import BertWordPieceTokenizer
 from tokenizers import ByteLevelBPETokenizer, SentencePieceBPETokenizer
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(description='Create Tokenizers for a dataset')
 parser.add_argument('--dataset', '-d', type=str, help='Path to dataset', required=True, default="../data/dataset.csv")
 args = parser.parse_args()
 
