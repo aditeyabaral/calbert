@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer, InputExample, models, eva
 from sentence_transformers.losses import CosineSimilarityLoss
 from transformers import AutoModel
 
-parser = argparse.ArgumentParser(description='Pre-train a Transformer model from scratch')
+parser = argparse.ArgumentParser(description='Siamese pre-train an existing Transformer model')
 parser.add_argument('--model', '-m', type=str, help='Model to train', required=True)
 parser.add_argument('--dataset', '-d', type=str, help='Path to dataset', required=True, default="../data/dataset.csv")
 parser.add_argument('--hub', '-hf', type=bool, help='Push model to HuggingFace Hub', required=False, default=False)
