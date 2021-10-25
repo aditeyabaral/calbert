@@ -1,8 +1,6 @@
-import nltk
-nltk.download("punkt")
-
 import os
-import sys
+import platform
+import argparse
 import pandas as pd
 from transformers import RobertaTokenizerFast, BertTokenizerFast, DistilBertTokenizerFast #, GPT2Tokenizer 
 from transformers import BertForMaskedLM, RobertaForMaskedLM, DistilBertForMaskedLM       #, GPT2LMHeadModel
@@ -11,29 +9,38 @@ from transformers import AdamW
 import torch
 from tqdm.auto import tqdm
 
-# os.system("transformers-cli login")
-df = pd.read_csv("../data/dataset.csv")
+parser = argparse.ArgumentParser(description='Pre-train a Transformer model from scratch')
+parser.add_argument('--model', '-m', type=str, help='Model to train', required=True)
+parser.add_argument('--dataset', '-d', type=str, help='Path to dataset', required=True, default="../data/dataset.csv")
+parser.add_argument('--hub', '-hf', type=bool, help='Push model to HuggingFace Hub', required=False, default=False)
+parser.add_argument('--username', '-u', type=str, help='Username for HuggingFace Hub', required=False)
+parser.add_argument('--password', '-p', type=str, help='Password for HuggingFace Hub', required=False)
+args = parser.parse_args()
+
+MODEL_NAME = args.model
+PUSH_TO_HUB = args.hub
+USERNAME = args.username
+PASSWORD = args.password
+DATASET_PATH = args.dataset
+
+if PUSH_TO_HUB is not None and PUSH_TO_HUB:
+  if USERNAME is None or PASSWORD is None:
+    print("Please provide username and password for pushing to HuggingFace Hub!\nRun the script with python pretrain_transformer.py -h for help.")
+    exit()
+  else:
+    print("Logging into HuggingFace Hub!")
+    if platform.system() == "Linux":
+      os.system(f"printf '{USERNAME}\{PASSWORD}' | transformers-cli login")
+    else:
+      print("Could not login to HuggingFace Hub automatically! Please enter credentials again")
+      os.system("transformers-cli login")
+
+df = pd.read_csv(DATASET_PATH)
 print(df.shape)
 
 translation = list(df['translation'].values)
 transliteration = list(df['transliteration'].values)
 combined = translation + transliteration
-
-if not os.path.isdir("data"):
-  os.makedirs("data")
-  os.makedirs("data/translation")
-  os.makedirs("data/transliteration")
-  os.makedirs("data/combined")
-
-for i in range(df.shape[0]):
-  translation_text = translation[i].strip()
-  transliteration_text = transliteration[i].strip()
-  with open(f"data/translation/{i}.txt", 'w') as f1, open(f"data/combined/{i}{i}.txt", 'w') as f2:
-    f1.write(translation_text)
-    f2.write(translation_text)
-  with open(f"data/transliteration/{i}.txt", 'w') as f1, open(f"data/combined/{i}{i}.txt", 'w') as f2:
-    f1.write(transliteration_text)
-    f2.write(transliteration_text)
 
 model_map = {
     "BERT": [BertForMaskedLM, BertTokenizerFast, BertConfig],
@@ -142,22 +149,26 @@ def preTrain(Tokenizer):
           loop.set_postfix(loss=loss.item())
   return model
 
-def train_model(model_name):
+def trainModel(model_name):
   Tokenizer, Tokenizer_combined = load_tokenizer(model_name)
+  
   print(f"Training {model_name} transliterated!")
   model_transliteration = preTrain(Tokenizer)
-  model_transliteration.push_to_hub(f"{model_name.lower()}-hinglish-small")
-  Tokenizer.push_to_hub(f"{model_name.lower()}-hinglish-small")
+
+  if PUSH_TO_HUB is not None and PUSH_TO_HUB:
+    model_transliteration.push_to_hub(f"{model_name.lower()}-hinglish-small")
+    Tokenizer.push_to_hub(f"{model_name.lower()}-hinglish-small")
   del model_transliteration
   del Tokenizer
   
   print(f"Training {model_name} combined!")
   model_combined = preTrain(Tokenizer_combined)
-  model_combined.push_to_hub(f"{model_name.lower()}-hinglish-big")
-  Tokenizer_combined.push_to_hub(f"{model_name.lower()}-hinglish-big")
+
+  if PUSH_TO_HUB is not None and PUSH_TO_HUB:
+    model_combined.push_to_hub(f"{model_name.lower()}-hinglish-big")
+    Tokenizer_combined.push_to_hub(f"{model_name.lower()}-hinglish-big")
   del model_combined
   del Tokenizer_combined
 
-MODEL_NAME = sys.argv[1]
-train_model(MODEL_NAME)
+trainModel(MODEL_NAME)
 
