@@ -1,37 +1,40 @@
-import nltk
-nltk.download("punkt")
-
 import os
+import argparse
 import pandas as pd
 from tokenizers import BertWordPieceTokenizer
 from tokenizers import ByteLevelBPETokenizer, SentencePieceBPETokenizer
 
-df = pd.read_csv("../dataset.csv")
+parser = argparse.ArgumentParser()
+parser.add_argument('--dataset', '-d', type=str, help='Path to dataset', required=True, default="../data/dataset.csv")
+args = parser.parse_args()
+
+DATASET_PATH = args.dataset
+df = pd.read_csv(DATASET_PATH)
 print(df.shape)
 
 translation = list(df["translation"].values)
 transliteration = list(df["transliteration"].values)
 combined = translation + transliteration
 
-if not os.path.isdir("data"):
-  os.makedirs("data")
-  os.makedirs("data/translation")
-  os.makedirs("data/transliteration")
-  os.makedirs("data/combined")
+if not os.path.isdir("tokenizer_data"):
+  os.makedirs("tokenizer_data")
+  os.makedirs("tokenizer_data/translation")
+  os.makedirs("tokenizer_data/transliteration")
+  os.makedirs("tokenizer_data/combined")
 
 for i in range(df.shape[0]):
   translation_text = translation[i].strip()
   transliteration_text = transliteration[i].strip()
-  with open(f"data/translation/{i}.txt", 'w') as f1, open(f"data/combined/{i}{i}.txt", 'w') as f2:
+  with open(f"tokenizer_data/translation/{i}.txt", 'w') as f1, open(f"tokenizer_data/combined/{i}{i}.txt", 'w') as f2:
     f1.write(translation_text)
     f2.write(translation_text)
-  with open(f"data/transliteration/{i}.txt", 'w') as f1, open(f"data/combined/{i}{i}.txt", 'w') as f2:
+  with open(f"tokenizer_data/transliteration/{i}.txt", 'w') as f1, open(f"tokenizer_data/combined/{i}{i}.txt", 'w') as f2:
     f1.write(transliteration_text)
     f2.write(transliteration_text)
 
-translation_path = [f"data/translation/{f}" for f in os.listdir("data/translation")]
-transliteration_path = [f"data/transliteration/{f}" for f in os.listdir("data/transliteration")]
-combined_path = [f"data/combined/{f}" for f in os.listdir("data/combined")]
+translation_path = [f"tokenizer_data/translation/{f}" for f in os.listdir("tokenizer_data/translation")]
+transliteration_path = [f"tokenizer_data/transliteration/{f}" for f in os.listdir("tokenizer_data/transliteration")]
+combined_path = [f"tokenizer_data/combined/{f}" for f in os.listdir("tokenizer_data/combined")]
 
 sent_tokenizer = SentencePieceBPETokenizer()
 word_tokenizer = BertWordPieceTokenizer()
