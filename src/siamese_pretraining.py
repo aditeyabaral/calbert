@@ -111,7 +111,11 @@ if SAMPLE_NEGATIVE:
 total_examples = len(translation)
 train_examples = list()
 for i in range(total_examples):
-  train_examples.append(InputExample(texts=[translation[i], transliteration[i]], label=labels[i]))
+  if isinstance(transliteration[i], list):
+    tl = transliteration[i][0]
+  else:
+    tl = transliteration[i]
+  train_examples.append(InputExample(texts=[translation[i], tl], label=labels[i]))
 train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=BATCH_SIZE)
 
 word_embedding_model = models.Transformer(MODEL_NAME)
