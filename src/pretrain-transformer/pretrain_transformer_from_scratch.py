@@ -1,13 +1,13 @@
 import os
+import torch
 import platform
 import argparse
 import pandas as pd
-from transformers import RobertaTokenizerFast, BertTokenizerFast, DistilBertTokenizerFast
-from transformers import BertForMaskedLM, RobertaForMaskedLM, DistilBertForMaskedLM
-from transformers import RobertaConfig, BertConfig, DistilBertConfig
-from transformers import AdamW
-import torch
 from tqdm.auto import tqdm
+from transformers import AdamW
+from transformers import RobertaConfig, BertConfig, DistilBertConfig
+from transformers import BertForMaskedLM, RobertaForMaskedLM, DistilBertForMaskedLM
+from transformers import RobertaTokenizerFast, BertTokenizerFast, DistilBertTokenizerFast
 
 parser = argparse.ArgumentParser(description='Pre-train a Transformer model from scratch')
 parser.add_argument('--model', '-m', type=str, help='Model to train', required=True)
