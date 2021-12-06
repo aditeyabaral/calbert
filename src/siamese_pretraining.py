@@ -4,6 +4,7 @@ import random
 import argparse
 import platform
 import pandas as pd
+from pathlib import Path
 from tqdm.auto import tqdm
 from transformers import AutoModel
 from torch.utils.data import DataLoader
@@ -17,20 +18,20 @@ except LookupError:
 from nltk.tokenize import word_tokenize
 
 parser = argparse.ArgumentParser(description='Siamese pre-train an existing Transformer model')
-parser.add_argument('--model', '-m', type=str, help='Model to train', required=True)
-parser.add_argument('--dataset', '-d', type=str, help='Path to dataset', required=True)
+parser.add_argument('--model', '-m', type=str, help='Transformer model name/path to siamese pre-train', required=True)
+parser.add_argument('--dataset', '-d', type=str, help='Path to dataset in required format', required=True)
 parser.add_argument('--hub', '-hf', type=bool, help='Push model to HuggingFace Hub', required=False, default=False)
-parser.add_argument('--loss', '-l', type=str, help='Loss function to use', required=False, default='contrastive')
+parser.add_argument('--loss', '-l', type=str, help='Loss function to use -- cosine, contrastive or online_contrastive', required=False, default='contrastive')
 parser.add_argument('--batch_size', '-b', type=int, help='Batch size', required=False, default=16)
 parser.add_argument('--evaluator', '-v', type=bool, help='Evaluate as you train', required=False, default=False)
 parser.add_argument('--evaluator_examples', '-ee', type=int, help='Number of examples to evaluate', required=False, default=1000)
 parser.add_argument('--epochs', '-e', type=int, help='Number of epochs', required=False, default=20)
-parser.add_argument('--username', '-u', type=str, help='Username for HuggingFace Hub', required=False)
-parser.add_argument('--password', '-p', type=str, help='Password for HuggingFace Hub', required=False)
-parser.add_argument('--output', '-o', type=str, help='Output path', required=False, default='saved_model/')
-parser.add_argument('--hub_name', '-hn', type=str, help='Name of the model in the HuggingFace Hub', required=False)
 parser.add_argument('--sample_negative', '-s', type=bool, help='Sample negative examples', required=False, default=True)
 parser.add_argument('--sample_size', '-ss', type=int, help='Number of negative examples to sample', required=False, default=2)
+parser.add_argument('--username', '-u', type=str, help='Username for HuggingFace Hub', required=False)
+parser.add_argument('--password', '-p', type=str, help='Password for HuggingFace Hub', required=False)
+parser.add_argument('--output', '-o', type=str, help='Output directory path', required=False, default='saved_models/')
+parser.add_argument('--hub_name', '-hn', type=str, help='Name of the model in the HuggingFace Hub', required=False)
 args = parser.parse_args()
 print(args)
 
@@ -151,12 +152,15 @@ if EVALUATE_AS_YOU_TRAIN:
 else:
   model.fit(train_objectives=[(train_dataloader, train_loss)], epochs=EPOCHS, warmup_steps=100)
 
-model.save(f"{OUTPUT_PATH}_{MODEL_NAME}")
-word_embedding_model.save(f"{OUTPUT_PATH}_{MODEL_NAME}_TRANSFORMER")
+if not Path(OUTPUT_PATH).exists():
+  Path(OUTPUT_PATH).mkdir(parents=True)
+
+model.save(f"{OUTPUT_PATH}/{MODEL_NAME}")
+word_embedding_model.save(f"{OUTPUT_PATH}/{MODEL_NAME}_TRANSFORMER")
 
 if PUSH_TO_HUB is not None and PUSH_TO_HUB:
   print("Pushing to HuggingFace Hub!")
-  word_embedding_model_hub = AutoModel.from_pretrained(f"{OUTPUT_PATH}_{MODEL_NAME}_TRANSFORMER")
+  word_embedding_model_hub = AutoModel.from_pretrained(f"{OUTPUT_PATH}/{MODEL_NAME}_TRANSFORMER")
   word_embedding_model_hub.push_to_hub(HUB_NAME)
   word_embedding_model.tokenizer.push_to_hub(HUB_NAME)
   model.save_to_hub(f"sentencetransformer-{HUB_NAME}")

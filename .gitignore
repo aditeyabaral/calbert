@@ -130,3 +130,9 @@ dmypy.json
 
 # src subdirectories
 src/tokenizer_data/
+
+# Dataset creator files
+chromedriver*
+
+# data subdirectories
+en-hi*

@@ -1,0 +1,38 @@
+{
+    "train": {
+        "train_runtime": 691.6543,
+        "train_samples_per_second": 181.391,
+        "train_steps_per_second": 11.364,
+        "total_flos": 2154783145496616.0,
+        "train_loss": 0.3135319960329672,
+        "epoch": 30.0
+    },
+    "validation": {
+        "eval_loss": 1.9040544033050537,
+        "eval_accuracy": 0.6711281070745698,
+        "eval_f1": 0.6705771827058705,
+        "eval_precision": 0.6705609921876338,
+        "eval_recall": 0.6711281070745698,
+        "eval_cf": [
+            [
+                40,
+                24,
+                13
+            ],
+            [
+                19,
+                155,
+                49
+            ],
+            [
+                13,
+                54,
+                156
+            ]
+        ],
+        "eval_runtime": 0.7904,
+        "eval_samples_per_second": 661.715,
+        "eval_steps_per_second": 41.753,
+        "epoch": 30.0
+    }
+}
