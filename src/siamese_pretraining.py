@@ -6,6 +6,8 @@ import platform
 import pandas as pd
 from pathlib import Path
 from tqdm.auto import tqdm
+from itertools import dropwhile
+from collections import Counter
 from transformers import AutoModel
 from torch.utils.data import DataLoader
 from sentence_transformers.losses import CosineSimilarityLoss, ContrastiveLoss, OnlineContrastiveLoss
@@ -23,6 +25,7 @@ parser.add_argument('--dataset', '-d', type=str, help='Path to dataset in requir
 parser.add_argument('--hub', '-hf', type=bool, help='Push model to HuggingFace Hub', required=False, default=False)
 parser.add_argument('--loss', '-l', type=str, help='Loss function to use -- cosine, contrastive or online_contrastive', required=False, default='contrastive')
 parser.add_argument('--batch_size', '-b', type=int, help='Batch size', required=False, default=16)
+parser.add_argument('--min_count', '-mc', type=int, help='Minimum frequency for a new token to be added to the Transformer', required=False, default=5)
 parser.add_argument('--evaluator', '-v', type=bool, help='Evaluate as you train', required=False, default=False)
 parser.add_argument('--evaluator_examples', '-ee', type=int, help='Number of examples to evaluate', required=False, default=1000)
 parser.add_argument('--epochs', '-e', type=int, help='Number of epochs', required=False, default=20)
@@ -41,6 +44,7 @@ PUSH_TO_HUB = args.hub
 LOSS_FUNCTION = args.loss
 EPOCHS = args.epochs
 BATCH_SIZE = args.batch_size
+MIN_COUNT = args.min_count
 EVALUATE_AS_YOU_TRAIN = args.evaluator
 EVALUATOR_EXAMPLES = args.evaluator_examples
 USERNAME = args.username
@@ -75,7 +79,10 @@ tokens = list()
 for sentence in tqdm(translation + transliteration):
   words = word_tokenize(sentence.lower())
   tokens.extend(words)
-tokens = list(set(tokens))
+token_counter = Counter(tokens)
+for key, count in dropwhile(lambda key_count: key_count[1] >= MIN_COUNT, token_counter.most_common()):
+  del token_counter[key]
+tokens = list(token_counter.keys())
 total_tokens = len(tokens)
 
 random.seed(0)
