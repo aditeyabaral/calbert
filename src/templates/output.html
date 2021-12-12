@@ -34,9 +34,16 @@
             <div class="card" style="width: 400px">
                 <div class="card-content">
                     <div class="media">
-                        <div class="is-size-4 has-text-centered">{% for each in output %}
-                                                            {{ each }}
-                            {% end for %}</div>
+                        <div class="is-size-4 has-text-centered">
+                            <table>
+                                {% for key, value in result1.items() %}
+                                   <tr>
+                                        <th> {{ key }} </th>
+                                        <td> {{ value }} </td>
+                                   </tr>
+                                {% endfor %}
+                                </table>
+                            
                     </div>
                     <form action="home">
                         <div class="field">
