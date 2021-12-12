@@ -24,7 +24,7 @@ parser.add_argument('--model', '-m', type=str, help='Transformer model name/path
 parser.add_argument('--dataset', '-d', type=str, help='Path to dataset in required format', required=True)
 parser.add_argument('--hub', '-hf', type=bool, help='Push model to HuggingFace Hub', required=False, default=False)
 parser.add_argument('--loss', '-l', type=str, help='Loss function to use -- cosine, contrastive or online_contrastive', required=False, default='contrastive')
-parser.add_argument('--batch_size', '-b', type=int, help='Batch size', required=False, default=16)
+parser.add_argument('--batch_size', '-b', type=int, help='Batch size', required=False, default=8)
 parser.add_argument('--min_count', '-mc', type=int, help='Minimum frequency for a new token to be added to the Transformer', required=False, default=5)
 parser.add_argument('--evaluator', '-v', type=bool, help='Evaluate as you train', required=False, default=False)
 parser.add_argument('--evaluator_examples', '-ee', type=int, help='Number of examples to evaluate', required=False, default=1000)
