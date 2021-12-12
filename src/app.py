@@ -60,10 +60,18 @@ def classify_type():
         output = get_sentiment(input_str)
         output = process_output(output)
         print(output)
-        return render_template('output.html', output = output)
+        df_list = []
+        for model_name in output:
+          df = pd.DataFrame()
+          df["Label"] = list(output[model_name]["prediction"].keys())
+          df["Probability"] = list(output[model_name]["prediction"].values())
+          df_list.append(df)
 
-    except:
-        return 'Error'
+        #return df_list[0].to_html(index = False)
+        return render_template('output.html', table1 = df_list[0], table2 = df_list[1], result1 = output["SAIL2017"]["prediction"], result2 = output["IIT-P Product Reviews"]["prediction"])
+
+    except Exception as e:
+        return(str(e))
 
 # Run the Flask server
 if(__name__=='__main__'):
