@@ -1,17 +1,19 @@
+import os
 import time
-import json
 import requests
 import pprint
 import pandas as pd
-from flask import Flask, request, render_template, jsonify
+from dotenv import load_dotenv
+from flask import Flask, request, render_template
 
+load_dotenv()
 app = Flask(__name__,template_folder="templates")
 
 API_URLS = [
             "https://api-inference.huggingface.co/models/aditeyabaral/finetuned-sail2017-xlm-roberta-base",
             "https://api-inference.huggingface.co/models/aditeyabaral/finetuned-iitp_pdt_review-xlm-roberta-base"
 ]
-headers = {"Authorization": "Bearer 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"}
+headers = {"Authorization": os.environ.get("HF_TOKEN")}
 
 def get_sentiment(sentence):
   output = list()
@@ -49,6 +51,7 @@ def process_output(output):
 
 pp = pprint.PrettyPrinter(indent=4)
 @app.route('/home')
+@app.route('/')
 def home():
     return render_template('home.html')
 
@@ -56,10 +59,8 @@ def home():
 def classify_type():
     try:
         input_str = request.form.get('inputstr') 
-        print(input_str)
         output = get_sentiment(input_str)
         output = process_output(output)
-        print(output)
         df_list = []
         for model_name in output:
           df = pd.DataFrame()
@@ -67,12 +68,10 @@ def classify_type():
           df["Probability"] = list(output[model_name]["prediction"].values())
           df_list.append(df)
 
-        #return df_list[0].to_html(index = False)
-        return render_template('output.html', table1 = df_list[0], table2 = df_list[1], result1 = output["SAIL2017"]["prediction"], result2 = output["IIT-P Product Reviews"]["prediction"])
+        return render_template('output.html', sentence=input_str, result1 = output["SAIL2017"]["prediction"], result2 = output["IIT-P Product Reviews"]["prediction"])
 
     except Exception as e:
         return(str(e))
 
-# Run the Flask server
 if(__name__=='__main__'):
     app.run(debug=True)        
