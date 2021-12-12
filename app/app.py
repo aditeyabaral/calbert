@@ -3,7 +3,7 @@ import json
 import requests
 import pprint
 import pandas as pd
-from flask import Flask, request, render_template,jsonify
+from flask import Flask, request, render_template, jsonify
 
 app = Flask(__name__,template_folder="templates")
 
