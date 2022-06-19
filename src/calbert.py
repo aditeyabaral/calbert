@@ -1,25 +1,31 @@
 import torch
-import logging
-import transformers
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
 
 
 class CalBERT(nn.Module):
-    def __init__(self, model_path, num_pooling_layers=0, pooling='mean', device='cpu'):
+    def __init__(self, model_path, num_pooling_layers=0, pooling_method='mean', device='cpu'):
         super(CalBERT, self).__init__()
         self.device = device
         self.num_pooling_layers = num_pooling_layers
-        self.pooling = pooling
+        self.pooling_method = pooling_method
         self.model_path = model_path
         self.transformers_model = AutoModel.from_pretrained(self.model_path).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
-        self.pool = nn.AdaptiveMaxPool1d(1) if self.pooling == 'max' else nn.AdaptiveAvgPool1d(1)
+        self.pool = nn.AdaptiveMaxPool1d(1) if self.pooling_method == 'max' else nn.AdaptiveAvgPool1d(1)
 
-    def get_sentence_encodings(self, sentences):
-        # encode the sentences
-        encodings = self.tokenizer.encode_plus(
+    def add_tokens_to_transformer(self, tokens):
+        for token in tokens:
+            self.tokenizer.add_tokens(token)
+        new_vocabulary_size = len(self.tokenizer)
+        self.transformers_model.resize_token_embeddings(new_vocabulary_size)
+        return new_vocabulary_size
+
+    def batch_encode(self, sentences):
+        if isinstance(sentences, str):
+            sentences = [sentences]
+        encodings = self.tokenizer.batch_encode_plus(
             sentences,
             max_length=128,
             truncation=True,
@@ -27,69 +33,72 @@ class CalBERT(nn.Module):
             return_tensors='pt').to(self.device)
         return encodings
 
-    def get_sentence_embeddings(self, encodings):
-        # get the embeddings for the language sentences
-        embeddings = self.transformers_model(
-            input_ids=encodings['input_ids'],
-            attention_mask=encodings['attention_mask']).last_hidden_state[0]
+    def encode(self, sentence):
+        encoding = self.tokenizer.encode_plus(
+            sentence,
+            max_length=128,
+            truncation=True,
+            pad_to_max_length=True,
+            return_tensors='pt').to(self.device)
+        return encoding
 
-        # pass the embeddings through the pooling layers
-        for _ in range(self.num_pooling_layers):
-            embeddings = self.pool(embeddings)
+    def embed(self, encoding):
+        embedding = self.transformers_model(**encoding).last_hidden_state
+        return embedding
 
-        embeddings = embeddings.squeeze(1)
+    def batch_embed(self, encodings):
+        embeddings = self.transformers_model(**encodings).last_hidden_state
         return embeddings
 
-    def get_contrastive_loss(self, base_language_embeddings, target_language_embeddings, labels=None, metric='cosine'):
-        # get the distance between the embeddings
+    def sentence_embedding(self, sentence):
+        encoding = self.encode(sentence)
+        embedding = self.encoding_to_embedding(encoding)
+        return embedding
+
+    def batch_sentence_embedding(self, sentences):
+        if isinstance(sentences, str):
+            sentences = [sentences]
+        encodings = self.batch_encode(sentences)
+        embeddings = self.batch_encoding_to_embedding(encodings)
+        return embeddings
+
+    def pooling(self, weights):
+        for _ in range(self.num_pooling_layers):
+            weights = self.pool(weights)
+        return weights
+
+    def embedding_distance(self, embedding1, embedding2, metric='cosine'):
         if metric == 'cosine':
-            distance = 1 - F.cosine_similarity(base_language_embeddings, target_language_embeddings)
+            distance = 1 - F.cosine_similarity(embedding1, embedding2)
         elif metric == 'euclidean':
-            distance = F.pairwise_distance(base_language_embeddings, target_language_embeddings)
+            distance = F.pairwise_distance(embedding1, embedding2)
         elif metric == 'manhattan':
-            distance = F.pairwise_distance(base_language_embeddings, target_language_embeddings, p=1)
+            distance = F.pairwise_distance(embedding1, embedding2, p=1)
         else:
             raise ValueError('Invalid metric')
+        return distance
 
-        # get the loss
-        if labels is None:
-            return distance
-        else:
-            return 0.5 * (labels * distance + (1 - labels) * F.relu(distance - 0.5))
+    def embedding_similarity(self, embedding1, embedding2):
+        return F.cosine_similarity(embedding1, embedding2)
 
-    def forward(self, base_language_sentences, target_language_sentences, labels=None, metric='cosine'):
-        # encode base and target language sentences
-        base_language_encodings = self.get_sentence_encodings(base_language_sentences)
-        target_language_encodings = self.get_sentence_encodings(target_language_sentences)
+    def distance(self, sentence1, sentence2, metric='cosine'):
+        embedding1 = self.sentence_embedding(sentence1)
+        embedding2 = self.sentence_embedding(sentence2)
+        return self.embedding_distance(embedding1, embedding2, metric)
 
-        # get the embeddings for the encodings
-        base_language_embeddings = self.get_sentence_embeddings(base_language_encodings)
-        target_language_embeddings = self.get_sentence_embeddings(target_language_encodings)
+    def similarity(self, sentence1, sentence2):
+        embedding1 = self.sentence_embedding(sentence1)
+        embedding2 = self.sentence_embedding(sentence2)
+        return self.embedding_similarity(embedding1, embedding2)
 
-        print(base_language_embeddings.shape)
-        print(target_language_embeddings.shape)
-
-        # get the contrastive loss
-        contrastive_loss = self.get_contrastive_loss(base_language_embeddings, target_language_embeddings).to(
-            self.device)
-        print(contrastive_loss)
+    def forward(self, sentences):
+        return self.batch_sentence_embedding(sentences)
 
     def save(self, path):
         torch.save(self.state_dict(), path)
+        self.transformers_model.save_pretrained(path)
+        self.tokenizer.save_pretrained(path)
 
     @staticmethod
     def load(path):
         return CalBERT().load_state_dict(torch.load(path))
-
-
-if __name__ == '__main__':
-    model = CalBERT(
-        'xlm-roberta-base',
-        num_pooling_layers=1,
-        pooling='mean',
-        device='cuda'
-    ).cuda()
-    base_language_sentences = ['Hello, my name is Cal.', 'I am a student.']
-    target_language_sentences = ['Hola, mi nombre es Cal.', 'Soy un estudiante.']
-    model(base_language_sentences, target_language_sentences)
-    # print(model)
