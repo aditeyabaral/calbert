@@ -1,19 +1,44 @@
 import torch
 import logging
+from typing import Union
 from pathlib import Path
 from tqdm.auto import tqdm
 import torch.nn.functional as F
 
-from model import CalBERT
-from dataset import CalBERTDataSet
+from CalBERT import CalBERT
+from CalBERTDataset import CalBERTDataset
 
 
 class SiamesePreTrainer:
-    def __init__(self, model: CalBERT, train_dataset: CalBERTDataSet, eval_dataset=None, eval_strategy='epoch',
-                 save_strategy='epoch', learning_rate=0.01, epochs=20, distance_metric='cosine',
-                 use_contrastive_loss=True, contrastive_loss_type='softmax', temperature=0.07, loss_margin=0.25,
-                 batch_size=16, save_best_model=True, optimizer_class='adam', optimizer_path=None,
-                 model_dir="./calbert", device='cpu'):
+    def __init__(self, model: CalBERT, train_dataset: CalBERTDataset, eval_dataset: CalBERTDataset = None,
+                 eval_strategy: str = 'epoch', save_strategy: str = 'epoch', learning_rate: float = 0.01,
+                 epochs: int = 20, distance_metric: str = 'cosine', use_contrastive_loss: bool = True,
+                 contrastive_loss_type: str = 'softmax', temperature: float = 0.07, loss_margin: float = 0.25,
+                 batch_size: int = 16, save_best_model: bool = True, optimizer_class: str = 'adam',
+                 optimizer_path: Union[str, Path] = None, model_dir: Union[str, Path] = "./calbert",
+                 device: str = 'cpu'):
+        """
+        Initialize the Trainer to perform CalBERT's Siamese Pre-training
+
+        :param model: The CalBERT model to train
+        :param train_dataset: The training dataset
+        :param eval_dataset: The evaluation dataset
+        :param eval_strategy: The evaluation strategy. Either 'epoch' or 'batch'
+        :param save_strategy: The save strategy. Either 'epoch' or 'batch'
+        :param learning_rate: The learning rate
+        :param epochs: The number of epochs to train
+        :param distance_metric: The distance metric to use. Either 'cosine', 'euclidean', or 'manhattan'
+        :param use_contrastive_loss: Whether to use contrastive loss
+        :param contrastive_loss_type: The type of contrastive loss to use. Either 'binary', 'linear', or 'softmax'
+        :param temperature: The temperature for the softmax contrastive loss
+        :param loss_margin: The margin for the contrastive loss
+        :param batch_size: The batch size
+        :param save_best_model: Whether to save the best model at the end of the training
+        :param optimizer_class: The optimizer class to use. Either 'adam', 'sgd', 'adagrad', 'adadelta' or 'rmsprop'
+        :param optimizer_path: The path to the optimizer state dict
+        :param model_dir: The directory to save the model
+        :param device: The device to use
+        """
         self.model = model
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
@@ -35,7 +60,14 @@ class SiamesePreTrainer:
         self.device = device
         # logging.debug(f"Created SiamesePreTrainer with {self.__dict__}")
 
-    def load_optimizer(self, optimizer_class='adam', optimizer_path=None):
+    def load_optimizer(self, optimizer_class: str = 'adam', optimizer_path: Union[str, Path] = None) -> None:
+        """
+        Initializes and loads the optimizer
+
+        :param optimizer_class: The optimizer class to use. Either 'adam', 'sgd', 'adagrad', 'adadelta' or 'rmsprop'
+        :param optimizer_path: The path to the optimizer state dict
+        :return: None
+        """
         logging.info(f"Loading optimizer {optimizer_class}")
 
         if optimizer_class == 'adam':
@@ -56,7 +88,13 @@ class SiamesePreTrainer:
         if optimizer_path is not None:
             self.optimizer.load_state_dict(torch.load(optimizer_path))
 
-    def parse_training_args(self, args):
+    def parse_training_args(self, args: dict[str, Union[str, int, float, Path]]) -> None:
+        """
+        Parse the training arguments
+
+        :param args: A key-value dictionary of the training arguments
+        :return: None
+        """
         logging.info(f"Parsing training args: {args}")
         if 'learning_rate' in args:
             self.learning_rate = args['learning_rate']
@@ -82,7 +120,16 @@ class SiamesePreTrainer:
         if 'model_dir' in args:
             self.model_dir = args['model_dir']
 
-    def calculate_contrastive_loss(self, distance, distance_matrix=None, labels=None):
+    def calculate_contrastive_loss(self, distance: torch.Tensor, distance_matrix: torch.Tensor = None,
+                                   labels: torch.Tensor = None) -> torch.Tensor:
+        """
+        Computes and returns the contrastive loss for the given distance and labels
+
+        :param distance: The distance between the two embeddings
+        :param distance_matrix: The distance matrix between the two embeddings
+        :param labels: The labels for the contrastive loss
+        :return: The contrastive loss
+        """
         if not self.use_contrastive_loss:
             return distance.mean()
 
@@ -102,23 +149,31 @@ class SiamesePreTrainer:
 
         return loss
 
-    def train(self, **kwargs):
+    def train(self, **kwargs) -> None:
+        """
+        Perform the Siamese Pre-training
+
+        :param kwargs: Keyword arguments for the pre-training. Uses the same arguments as the SiamesePreTrainer
+        constructor
+        :return: None
+        """
         self.parse_training_args(kwargs)
         torch.cuda.empty_cache()
         self.model.zero_grad()
         self.model.train()
+        training_loss = torch.tensor(0.0)
+        eval_loss = torch.tensor(0.0)
         for epoch in tqdm(range(self.epochs)):
             for i in tqdm(range(0, len(self.train_dataset), self.batch_size)):
-                base_language_sentences, target_language_sentences, labels = self.train_dataset.get_batch(i,
-                                                                                                          i + self.batch_size)
+                base_language_sentences, target_language_sentences, labels = self.train_dataset. \
+                    get_batch(i, i + self.batch_size)
                 logging.info(f"Training on batch {i // self.batch_size}")
                 distance, distance_matrix = self.forward(base_language_sentences, target_language_sentences)
                 training_loss = self.calculate_contrastive_loss(distance, distance_matrix, labels)
                 logging.info(
                     f"Epoch {epoch} Batch {i // self.batch_size} Training Loss: {training_loss.item()}")
-                eval_loss = torch.tensor(0)
                 if self.eval_strategy == 'batch' and self.eval_dataset is not None:
-                    eval_loss = self.evaluate()
+                    eval_loss = self.evaluate(self.eval_dataset)
                     logging.info(
                         f"Epoch {epoch} Batch {i // self.batch_size} Evaluation Loss: {eval_loss.item()}")
                 if self.save_strategy == 'batch':
@@ -127,12 +182,20 @@ class SiamesePreTrainer:
                 self.optimizer.step()
             logging.info(f"Epoch {epoch} Training Loss: {training_loss.item()}")
             if self.eval_strategy == 'epoch' and self.eval_dataset is not None:
-                eval_loss = self.evaluate()
+                eval_loss = self.evaluate(self.eval_dataset)
                 logging.info(f"Epoch {epoch} Evaluation Loss: {eval_loss.item()}")
             if self.save_strategy == 'epoch':
                 self.create_checkpoint(training_loss, eval_loss, epoch)
 
-    def forward(self, base_language_sentences, target_language_sentences):
+    def forward(self, base_language_sentences: list, target_language_sentences: list) -> \
+            tuple[torch.Tensor, torch.Tensor]:
+        """
+        Performs a single forward pass of the model and computes the distance between the two embeddings
+
+        :param base_language_sentences: The base language sentences
+        :param target_language_sentences: The target language sentences
+        :return: The distance between the two embeddings and the distance matrix
+        """
         base_language_input = self.model.batch_encode(base_language_sentences)
         base_language_input = self.model.batch_embed(base_language_input)
         base_language_input = self.model.pooling(base_language_input)
@@ -147,9 +210,21 @@ class SiamesePreTrainer:
                                                                   metric=self.distance_metric)
         return distance, distance_matrix
 
-    def evaluate(self):
-        base_language_sentences, target_language_sentences, labels = self.eval_dataset.get_batch(0,
-                                                                                                 len(self.eval_dataset))
+    def evaluate(self, eval_dataset: CalBERTDataset = None) -> torch.Tensor:
+        """
+        Evaluates the model on the given dataset
+
+        :param eval_dataset: The dataset to evaluate on. If None, the model will be evaluated on the eval dataset passed
+        to the constructor
+        :return: The evaluation loss
+        """
+        self.model.eval()
+        if eval_dataset is None:
+            if self.eval_dataset is None:
+                raise ValueError("No eval dataset provided")
+            eval_dataset = self.eval_dataset
+
+        base_language_sentences, target_language_sentences, labels = eval_dataset.get_batch(0, len(eval_dataset))
         base_language_sentences = torch.tensor(base_language_sentences).to(self.device)
         target_language_sentences = torch.tensor(target_language_sentences).to(self.device)
         labels = torch.tensor(labels).to(self.device)
@@ -157,7 +232,17 @@ class SiamesePreTrainer:
         loss = self.calculate_contrastive_loss(distance, distance_matrix, labels)
         return loss
 
-    def create_checkpoint(self, training_loss, eval_loss, epoch, batch=None):
+    def create_checkpoint(self, training_loss: torch.Tensor, eval_loss: torch.Tensor, epoch: int,
+                          batch: int = None) -> None:
+        """
+        Creates a checkpoint of the model in the provided model directory
+
+        :param training_loss: The training loss of the model
+        :param eval_loss: The evaluation loss of the model
+        :param epoch: The current epoch during pre-training
+        :param batch: The current batch during pre-training
+        :return: None
+        """
         save_directory = Path(self.model_dir)
         if not save_directory.exists():
             save_directory.mkdir(parents=True)
@@ -179,7 +264,14 @@ class SiamesePreTrainer:
             data['batch'] = batch
         self.save_trainer(checkpoint_directory, data)
 
-    def save_trainer(self, path, data=None):
+    def save_trainer(self, path: Union[str, Path], data: dict = None) -> None:
+        """
+        Saves the Trainer object to the provided path
+
+        :param path: The path to save the Trainer in
+        :param data: The data to save to the Trainer
+        :return: None
+        """
         save_directory = Path(path)
         if not save_directory.exists():
             raise ValueError(f"Path {path} does not exist")
@@ -189,9 +281,18 @@ class SiamesePreTrainer:
                 'optimizer_state_dict': self.optimizer.state_dict(),
                 'learning_rate': self.learning_rate,
             }
+        else:
+            data['learning_rate'] = self.learning_rate
+            data['optimizer_state_dict'] = self.optimizer.state_dict()
         torch.save(data, save_directory)
 
-    def save_model(self, path):
+    def save_model(self, path: Union[str, Path]) -> None:
+        """
+        Saves the CalBERT model to the provided path by invoking the save method of the model
+
+        :param path: The path to the directory save the model in
+        :return: None
+        """
         save_directory = Path(path)
         if not save_directory.exists():
             raise ValueError(f"Path {path} does not exist")

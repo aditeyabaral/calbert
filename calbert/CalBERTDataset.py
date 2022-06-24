@@ -1,16 +1,18 @@
 import torch
 import random
+from typing import Union
+from pathlib import Path
 from tqdm.auto import tqdm
 from collections import Counter
 from torch.utils.data import Dataset
 
 
-class CalBERTDataSet(Dataset):
+class CalBERTDataset(Dataset):
     def __init__(self, base_language_sentences: list[str], target_language_sentences: list[str], labels: float = None,
                  negative_sampling: bool = False, negative_sampling_size: float = 0.5, negative_sampling_count: int = 1,
-                 min_count: int = 10, shuffle: bool = True) -> None:
+                 negative_sampling_type: str = 'target', min_count: int = 10, shuffle: bool = True):
         """
-        Create a CalBERTDataSet from a list of base language sentences and target language sentences.
+        Create a CalBERTDataset from a list of base language sentences and target language sentences.
 
         :param base_language_sentences: Sentences in the base language
         :param target_language_sentences: Sentences in the target (code-mixed) language
@@ -18,6 +20,7 @@ class CalBERTDataSet(Dataset):
         :param negative_sampling: Whether to perform negative sampling of examples
         :param negative_sampling_size: Percentage of dataset to use for negative sampling
         :param negative_sampling_count: Number of negative samples to sample per positive example
+        :param negative_sampling_type: Whether to sample from the base language or the target language or both
         :param min_count: Minimum frequency of a token in the dataset to be included in the vocabulary
         :param shuffle: Whether to shuffle the dataset
         """
@@ -28,13 +31,14 @@ class CalBERTDataSet(Dataset):
 
         self.total_examples = len(base_language_sentences)
         self.negative_sampling = negative_sampling
-        self.negative_sample_size = negative_sampling_size
-        self.negative_sample_count = negative_sampling_count
+        self.negative_sampling_size = negative_sampling_size
+        self.negative_sampling_count = negative_sampling_count
+        self.negative_sampling_type = negative_sampling_type
         self.min_count = min_count
         random.seed(0)
 
         if self.negative_sampling:
-            self.sample_negative_examples()
+            self.sample_negative_examples(self.negative_sampling_type)
 
         if shuffle:
             items = list(zip(self.base_language_sentences, self.target_language_sentences, self.labels))
@@ -45,7 +49,7 @@ class CalBERTDataSet(Dataset):
             self.labels = torch.tensor(self.labels)
 
         self.tokens = list()
-        self.compute_vocabulary()
+        self.compute_vocabulary(self.min_count)
 
     def __len__(self) -> int:
         """
@@ -73,7 +77,7 @@ class CalBERTDataSet(Dataset):
         """
         current_examples = list(zip(self.base_language_sentences, self.target_language_sentences, self.labels))
         new_examples = list()
-        for example in tqdm(random.sample(current_examples, int(self.negative_sample_size * self.total_examples))):
+        for example in tqdm(random.sample(current_examples, int(self.negative_sampling_size * self.total_examples))):
             translation = example[0]
             transliteration = example[1]
             label = example[2]
@@ -83,7 +87,7 @@ class CalBERTDataSet(Dataset):
                 sampled = False
                 random_sample_items = list()
                 while not sampled:
-                    random_sample_index = random.sample(range(self.total_examples), self.negative_sample_count)
+                    random_sample_index = random.sample(range(self.total_examples), self.negative_sampling_count)
                     random_sample_items = [current_examples[i] for i in random_sample_index]
                     random_sample_target_language_sentences = [self.target_language_sentences[i] for i in
                                                                random_sample_index]
@@ -96,7 +100,7 @@ class CalBERTDataSet(Dataset):
                 sampled = False
                 random_sample_items = list()
                 while not sampled:
-                    random_sample_index = random.sample(range(self.total_examples), self.negative_sample_count)
+                    random_sample_index = random.sample(range(self.total_examples), self.negative_sampling_count)
                     random_sample_items = [current_examples[i] for i in random_sample_index]
                     random_sample_base_language_sentences = [self.base_language_sentences[i] for i in
                                                              random_sample_index]
@@ -140,18 +144,19 @@ class CalBERTDataSet(Dataset):
         """
         return self.tokens
 
-    def get_batch(self, start: int, end: int) -> tuple[list[str], list[str], torch.Tensor[float]]:
+    def get_batch(self, start: int, end: int) -> tuple[list[str], list[str], torch.Tensor]:
         """
         Returns a batch of examples from the dataset between the given start and end indices.
 
         :param start: Start index of the batch in the dataset
         :param end: End index of the batch in the dataset
-        :return:    A tuple of base language sentences, target language sentences, and labels between the given start and end indices
+        :return: A tuple of base language sentences, target language sentences, and labels between the given start and
+        end indices
         """
         return self.base_language_sentences[start:end], self.target_language_sentences[start:end], self.labels[
                                                                                                    start:end]
 
-    def save(self, path: str) -> None:
+    def save(self, path: Union[str, Path]) -> None:
         """
         Save the dataset object to the given path.
 
@@ -161,7 +166,7 @@ class CalBERTDataSet(Dataset):
         torch.save(self, path)
 
     @staticmethod
-    def load(path: str) -> 'CalBERTDataSet':
+    def load(path: Union[str, Path]) -> 'CalBERTDataset':
         """
         Load a CalBertDataset object from the given path.
 
