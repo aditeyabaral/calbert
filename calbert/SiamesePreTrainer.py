@@ -1,9 +1,10 @@
-import torch
 import logging
-from typing import Union
 from pathlib import Path
-from tqdm.auto import tqdm
+from typing import Union
+
+import torch
 import torch.nn.functional as F
+from tqdm.auto import tqdm
 
 from CalBERT import CalBERT
 from CalBERTDataset import CalBERTDataset
