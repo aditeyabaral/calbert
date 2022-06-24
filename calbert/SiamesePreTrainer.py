@@ -6,8 +6,8 @@ import torch
 import torch.nn.functional as F
 from tqdm.auto import tqdm
 
-from CalBERT import CalBERT
-from CalBERTDataset import CalBERTDataset
+from .CalBERT import CalBERT
+from .CalBERTDataset import CalBERTDataset
 
 
 class SiamesePreTrainer:
