@@ -1,9 +1,10 @@
 import json
-import torch
 import logging
-import torch.nn as nn
-from typing import Union
 from pathlib import Path
+from typing import Union
+
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
 

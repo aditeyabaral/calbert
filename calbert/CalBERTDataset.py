@@ -1,10 +1,11 @@
-import torch
 import random
-from typing import Union
-from pathlib import Path
-from tqdm.auto import tqdm
 from collections import Counter
+from pathlib import Path
+from typing import Union
+
+import torch
 from torch.utils.data import Dataset
+from tqdm.auto import tqdm
 
 
 class CalBERTDataset(Dataset):
