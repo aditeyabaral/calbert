@@ -131,8 +131,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# src subdirectories
-src/tokenizer_data/
+# calbert subdirectories
+calbert/tokenizer_data/
 
 # Dataset creator files
 chromedriver*

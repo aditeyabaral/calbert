@@ -22,8 +22,7 @@ class CalBERT(nn.Module):
                 (self.transformers_model.config.hidden_size, 1))
 
     def add_tokens_to_tokenizer(self, tokens):
-        for token in tqdm(tokens):
-            self.tokenizer.add_tokens(token)
+        self.tokenizer.add_tokens(tokens)
         new_vocabulary_size = len(self.tokenizer)
         self.transformers_model.resize_token_embeddings(new_vocabulary_size)
         return new_vocabulary_size

@@ -4,7 +4,7 @@ from pathlib import Path
 from tqdm.auto import tqdm
 import torch.nn.functional as F
 
-from calbert import CalBERT
+from model import CalBERT
 from dataset import CalBERTDataSet
 
 
