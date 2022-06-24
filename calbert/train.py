@@ -1,6 +1,6 @@
 import logging
 import pandas as pd
-from calbert import CalBERT
+from model import CalBERT
 from trainer import SiamesePreTrainer
 from dataset import CalBERTDataSet
 
@@ -39,7 +39,8 @@ trainer = SiamesePreTrainer(
     model=model,
     train_dataset=dataset,
     batch_size=32,
-    learning_rate=0.9
+    learning_rate=0.9,
+    use_contrastive_loss=False
 )
 trainer.train()
 
