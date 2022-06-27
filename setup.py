@@ -28,7 +28,7 @@ setuptools.setup(
             'win-inet-pton==1.1.0', 'wincertstore==0.2', 'zipp==3.6.0'
     ],
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ]
