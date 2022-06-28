@@ -68,10 +68,10 @@ parser.add_argument("-d", "--device", type=str, required=False, default="cuda", 
 args = parser.parse_args()
 
 # Read dataset
-with open(args.training_data, 'r') as training_data_file:
+with open(args.training_data, 'r', encoding = "utf-8") as training_data_file:
     train_df = pd.read_csv(training_data_file)
-base_language_sentences = train_df['base_language_sentences'].tolist()
-target_language_sentences = train_df['target_language_sentences'].tolist()
+base_language_sentences = train_df['translation'].tolist()
+target_language_sentences = train_df['transliteration'].tolist()
 labels = train_df['label'].tolist() if not args.unlabeled else None
 train_dataset = CalBERTDataset(
     base_language_sentences=base_language_sentences,
