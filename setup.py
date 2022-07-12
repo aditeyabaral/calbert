@@ -12,6 +12,7 @@ setuptools.setup(
     maintainer_email="abaksy@gmail.com",
     description="Code-mixed Adaptive Language representations using BERT",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     url="https://github.com/aditeyabaral/calbert",
     packages=setuptools.find_packages(),
     install_requires=[
