@@ -1,155 +1,134 @@
-# CalBERT
-Code-mixed Adaptive Language representations using BERT
+# CalBERT - Code-mixed Apaptive Language representations using BERT
 
-CalBERT adapts existing Transformer representations for a language to another language by minimising the semantic space between equivalent sequences in those languages, thus allowing the Transformer to learn representations for the same tokens across two languages. 
+This repository contains the source code
+for [CalBERT - Code-mixed Apaptive Language representations using BERT](http://ceur-ws.org/Vol-3121/short3.pdf),
+published at AAAI-MAKE 2022, Stanford University.
 
-CalBERT is language agnostic, and can be used to adapt any language to any other language. It is also task agnostic, and can be fine-tuned on any task.
+CalBERT can be used to adapt existing Transformer language representations into another similar language by minimising
+the semantic space between equivalent sentences in those languages, thus allowing the Transformer to learn
+representations for words across two languages. It relies on a novel pre-training architecture named Siamese Pre-training to learn task-agnostic and language-agnostic
+representations. For more information, please refer to the paper.
 
-# How to use CalBERT
+This framework allows you to perform CalBERT's Siamese Pre-training to learn representations for your own data and can be used to obtain dense vector representations for words, sentences or paragraphs. The base models used to 
+train CalBERT consist of BERT-based Transformer models such as BERT, RoBERTa, XLM, XLNet, DistilBERT, and so on. 
+CalBERT achieves state-of-the-art results on the SAIL and IIT-P Product Reviews datasets. CalBERT is also one of the
+only models able to learn code-mixed language representations without the need for traditional pre-training methods and 
+is currently one of the few models available for Indian code-mixing such as Hinglish.
 
-CalBERT is primarily meant to be used on an existing pre-trained Transformer model. CalBERT adapts the embeddings of the langauge the Transformer was pre-trained in to another target language which consists of the base language.
+# Installation
 
-## Environment setup
+We recommend `Python 3.9` or higher for CalBERT.
 
-If you use `conda`, you can create an environment with the following command:
+## PyTorch with CUDA
 
-```sh
-conda env create -f environment.yml
+If you want to use a GPU/ CUDA, you must install PyTorch with the matching CUDA Version. Follow 
+[PyTorch - Get Started](https://pytorch.org/get-started/locally/) for further details how to install PyTorch with CUDA.
+
+## Install with pip
+   ```bash
+   pip install calbert
+   ```
+
+## Install from source
+You can also clone the current version from the [repository](https://github.com/aditeyabaral/calbert) and then directly 
+install the package.
+   ```bash
+   pip install -e .
+   ```
+
+# Getting Started
+
+Detailed documentation coming soon.
+
+The following example shows you how to use CalBERT to obtain sentence embeddings.
+
+# Training
+
+This framework allows you to also train your own CalBERT models on your own code-mixed data so you can learn
+embeddings for your custom code-mixed languages. There are various options to choose from in order to get the best
+embeddings for your language.
+
+First, initialise a model with the base Transformer
+```python
+from calbert import CalBERT
+model = CalBERT('bert-base-uncased')
 ```
 
-You can also use the `requirements.txt` file to create an environment with the following command:
-
-```sh
-conda create -n calbert -f requirements.txt
+Create a CalBERTDataset using your sentences
+```python
+from calbert import CalBERTDataset
+base_language_sentences = [
+   "I am going to Delhi today via flight",
+   "This movie is awesome!"
+]
+target_language_sentences = [
+   "Main aaj flight lekar Delhi ja raha hoon.",
+   "Mujhe yeh movie bahut awesome lagi!"
+]
+dataset = CalBERTDataset(base_language_sentences, target_language_sentences)
 ```
 
-## Data Preparation
-
-The following terms will be used extensively in the following sections:
-
-1. **Base Language**: The single language the Transformer was pre-trained in.
-2. **Target Language**: The code-mixed language for which the Transformer will be adapting representations. This language is a superset of the base language, since it builds on top of the base language.
-
-Note that the script language used across both languages has to be the same, i.e. Roman(English) for both languages or French for both languages and so on.
-
-### Dataset Format
-
-CalBERT requires code-mixed data in the following format. 
-
-1. The first column contains the sentence in the base language, such as English
-
-2. The second column contains the original sentence in the target language -- the code-mixed language for which the Transformer is trying to adapt representations, such as Hinglish
-
-Examples of such data is given below:
-
-| Translation  | Transliteration  |
-|--------------|------------------|
-| I am going to the airport today | Main aaj airport jaa raha hoon |
-| I really liked this movie | mujhe yeh movie bahut achhi lagi |
-
-An example of such a dataset is placed in the `data/` directory, named `dataset.csv`.
-
-### Dataset Creation
-
-The `utils` folder contains scripts that can help you generate code-mixed datasets. The `create_dataset.py` script can be used to create a dataset in the format described above.
-
-The input to the script is a file which contains newline delimited sentences in either of the following formats:
-
-1. In a code-mixed language (like Hinglish)
-2. One of the constituent languages of the code-mixed language *except* the base language (like Hindi).
-
-If your input data is code-mixed, pass `True` for the ```--format``` flag. Else pass `False`.
-
-```sh
-usage: python create_dataset.py [-h] --input INPUT --output OUTPUT --target TARGET --base BASE --format FORMAT
-
-Create dataset from text file. Ensure that the text file contains newline delimited sentences either in the target language for adaptation, or one of the constituent languages of the code-mixed language
-*except* the base language
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --input INPUT, -i INPUT
-                        Input file
-  --output OUTPUT, -o OUTPUT
-                        Output file as CSV
-  --target TARGET, -t TARGET
-                        Language code of one of the constituent languages of the code-mixed language except the base language
-  --base BASE, -b BASE  Base language code used to originally pre-train Transformer
-  --format FORMAT, -f FORMAT
-                        Input data format is code-mixed
+Then create a trainer and train the model
+```python
+from calbert import SiamesePreTrainer
+trainer = SiamesePreTrainer(model, dataset)
+trainer.train()
 ```
 
-Example:
+# Performance
 
-```bash
-python create_dataset.py
-  --input data/input_code_mixed.txt
-  --output data/dataset.csv
-  --target hi
-  --base en
-  --format True
+Our models achieve state-of-the-art results on the SAIL and IIT-P Product Reviews datasets.
+
+More information will be added soon.
+
+# Application and Uses
+
+This framework can be used for:
+
+- Computing code-mixed as well as plain sentence embeddings
+- Obtaining semantic similarities between any two sentences
+- Other textual tasks such as clustering, text summarization, semantic search and many more.
+
+# Citing and Authors
+
+If you find this repository useful, please cite our publication [CalBERT - Code-mixed Apaptive Language representations using BERT](http://ceur-ws.org/Vol-3121/short3.pdf).
+
+```bibtex
+@inproceedings{calbert-baral-et-al-2022,
+  author    = {Aditeya Baral and
+               Aronya Baksy and
+               Ansh Sarkar and
+               Deeksha D and
+               Ashwini M. Joshi},
+  editor    = {Andreas Martin and
+               Knut Hinkelmann and
+               Hans{-}Georg Fill and
+               Aurona Gerber and
+               Doug Lenat and
+               Reinhard Stolle and
+               Frank van Harmelen},
+  title     = {CalBERT - Code-Mixed Adaptive Language Representations Using {BERT}},
+  booktitle = {Proceedings of the {AAAI} 2022 Spring Symposium on Machine Learning
+               and Knowledge Engineering for Hybrid Intelligence {(AAAI-MAKE} 2022),
+               Stanford University, Palo Alto, California, USA, March 21-23, 2022},
+  series    = {{CEUR} Workshop Proceedings},
+  volume    = {3121},
+  publisher = {CEUR-WS.org},
+  year      = {2022},
+  url       = {http://ceur-ws.org/Vol-3121/short3.pdf},
+  timestamp = {Fri, 22 Apr 2022 14:55:37 +0200}
+}
 ```
 
+# Contact
 
-## Siamese Pre-Training
+Please feel free to contact us by emailing us to report any issues or suggestions, or if you have any further
+questions.
 
-To perform CalBERT's siamese pre-training, you need to use the `siamese_pretraining.py` script inside `src/`. It takes in the following arguments, all of which are self-explanatory.
+Contact: - [Aditeya Baral](https://aditeyabaral.github.io/), [aditeya.baral@gmail.com](mailto:aditeya.baral@gmail.com)
 
-```bash
-usage: python siamese_pretraining.py [-h] --model MODEL --dataset DATASET [--hub HUB] [--loss LOSS] [--batch_size BATCH_SIZE] [--evaluator EVALUATOR] [--evaluator_examples EVALUATOR_EXAMPLES] [--epochs EPOCHS]
-                              [--sample_negative SAMPLE_NEGATIVE] [--sample_size SAMPLE_SIZE] [--username USERNAME] [--password PASSWORD] [--output OUTPUT] [--hub_name HUB_NAME]
+You can also contact the other maintainers listed below.
 
-Siamese pre-train an existing Transformer model
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --model MODEL, -m MODEL
-                        Transformer model name/path to siamese pre-train
-  --dataset DATASET, -d DATASET
-                        Path to dataset in required format
-  --hub HUB, -hf HUB    Push model to HuggingFace Hub
-  --loss LOSS, -l LOSS  Loss function to use -- cosine, contrastive or online_contrastive
-  --batch_size BATCH_SIZE, -b BATCH_SIZE
-                        Batch size
-  --evaluator EVALUATOR, -v EVALUATOR
-                        Evaluate as you train
-  --evaluator_examples EVALUATOR_EXAMPLES, -ee EVALUATOR_EXAMPLES
-                        Number of examples to evaluate
-  --epochs EPOCHS, -e EPOCHS
-                        Number of epochs
-  --sample_negative SAMPLE_NEGATIVE, -s SAMPLE_NEGATIVE
-                        Sample negative examples
-  --sample_size SAMPLE_SIZE, -ss SAMPLE_SIZE
-                        Number of negative examples to sample
-  --username USERNAME, -u USERNAME
-                        Username for HuggingFace Hub
-  --password PASSWORD, -p PASSWORD
-                        Password for HuggingFace Hub
-  --output OUTPUT, -o OUTPUT
-                        Output directory path
-  --hub_name HUB_NAME, -hn HUB_NAME
-                        Name of the model in the HuggingFace Hub
-```
-
-Example:
-
-```bash
-python siamese_pretraining.py \
-  --model xlm-roberta-base \
-  --dataset data/dataset.csv \
-  --hub False \
-  --loss cosine \
-  --batch_size 32 \
-  --evaluator True \
-  --evaluator_examples 1000 \
-  --epochs 10 \
-  --sample_negative True \
-  --sample_size 2 \
-  --output saved_models/calbert-xlm-roberta-base
-```
-
-The Siamese pre-trained CalBERT model will be saved into the specified output directory as `[model_name]_TRANSFORMER`. This model can now be fine-tuned for any given task.
-
-## Pre-Training from Scratch
-
-If you would like to pre-train your own Transformer from scratch on Masked-Language-Modelling before performing the Siamese Pre-training, you can use the scripts provided in `src/pretrain-transformer/`
+- [Aronya Baksy](mailto:abaksy@gmail.com)
+- [Ansh Sarkar](mailto:anshsarkar1@gmail.com)
+- [Deeksha D](mailto:deekshad132@gmail.com)
