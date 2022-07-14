@@ -118,3 +118,4 @@ trainer = SiamesePreTrainer(
 
 # Train
 trainer.train()
+trainer.save_model('./saved_models/best_model/')

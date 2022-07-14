@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setuptools.setup(
     name="calbert",
-    version="0.2.0",
+    version="1.0.0",
     author="Aditeya Baral <aditeya.baral@gmail.com>, Aronya Baksy <abaksy@gmail.com>, Ansh Sarkar <anshsarkar1@gmail.com>, Deeksha D <deekshad132@gmail.com>",
     author_email="aditeya.baral@gmail.com",
     maintainer="Aronya Baksy",
