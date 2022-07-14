@@ -48,7 +48,7 @@ parser.add_argument("-ds", "--distance-metric", type=str, required=False, defaul
 parser.add_argument("-ucl", "--use-contrastive-loss", action='store_true', required=False, default=True,
                     help="Whether to use contrastive loss")
 parser.add_argument("-clt", "--contrastive-loss-type", type=str, required=False, default="softmax",
-                    choices=["binary", "softmax", "linear"], help="Contrastive loss type to use")
+                    choices=["binary", "softmax", "margin"], help="Contrastive loss type to use")
 parser.add_argument("-t", "--temperature", type=float, required=False, default=0.07,
                     help="Temperature for the softmax contrastive loss")
 parser.add_argument("-lm", "--loss-margin", type=float, required=False, default=0.25,

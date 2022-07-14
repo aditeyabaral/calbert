@@ -4,6 +4,7 @@ from typing import Union
 
 import torch
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
 from .CalBERT import CalBERT
@@ -15,9 +16,10 @@ class SiamesePreTrainer:
                  eval_strategy: str = 'epoch', save_strategy: str = 'epoch', learning_rate: float = 0.01,
                  epochs: int = 20, distance_metric: str = 'cosine', use_contrastive_loss: bool = True,
                  contrastive_loss_type: str = 'softmax', temperature: float = 0.07, loss_margin: float = 0.25,
-                 batch_size: int = 16, save_best_model: bool = True, optimizer_class: str = 'adam',
-                 optimizer_path: Union[str, Path] = None, model_dir: Union[str, Path] = "./calbert",
-                 device: str = 'cpu'):
+                 batch_size: int = 16, save_best_model: bool = True, save_best_strategy: str = 'train',
+                 optimizer_class: str = 'adam', optimizer_path: Union[str, Path] = None,
+                 model_dir: Union[str, Path] = "./calbert", use_tensorboard: bool = False,
+                 tensorboard_log_path: str = "./tensorboard_logs", device: str = 'cpu'):
         """
         Initialize the Trainer to perform CalBERT's Siamese Pre-training
 
@@ -30,14 +32,17 @@ class SiamesePreTrainer:
         :param epochs: The number of epochs to train
         :param distance_metric: The distance metric to use. Either 'cosine', 'euclidean', or 'manhattan'
         :param use_contrastive_loss: Whether to use contrastive loss
-        :param contrastive_loss_type: The type of contrastive loss to use. Either 'binary', 'linear', or 'softmax'
+        :param contrastive_loss_type: The type of contrastive loss to use. Either 'binary', 'margin', or 'softmax'
         :param temperature: The temperature for the softmax contrastive loss
         :param loss_margin: The margin for the contrastive loss
         :param batch_size: The batch size
-        :param save_best_model: Whether to save the best model at the end of the training
+        :param save_best_model: Whether to save and load the best model at the end of the training
+        :param save_best_strategy: The strategy to save the best model. Either 'epoch' or 'batch'
         :param optimizer_class: The optimizer class to use. Either 'adam', 'sgd', 'adagrad', 'adadelta' or 'rmsprop'
         :param optimizer_path: The path to the optimizer state dict
         :param model_dir: The directory to save the model
+        :param use_tensorboard: Whether to use tensorboard for logging
+        :param tensorboard_log_path: The path to the tensorboard log directory
         :param device: The device to use
         """
         self.model = model
@@ -54,12 +59,15 @@ class SiamesePreTrainer:
         self.loss_margin = loss_margin
         self.batch_size = batch_size
         self.num_batches = len(self.train_dataset) // self.batch_size
-        self.save_best_model = save_best_model  # TODO: implement this
+        self.save_best_model = save_best_model
+        self.save_best_strategy = save_best_strategy
         self.optimizer = None
         self.load_optimizer(optimizer_class, optimizer_path)
         self.model_dir = model_dir
+        self.use_tensorboard = use_tensorboard
+        self.tensorboard_log_path = tensorboard_log_path
+        self.writer = SummaryWriter(log_dir=self.tensorboard_log_path) if self.use_tensorboard else None
         self.device = device
-        # logging.debug(f"Created SiamesePreTrainer with {self.__dict__}")
 
     def load_optimizer(self, optimizer_class: str = 'adam', optimizer_path: Union[str, Path] = None) -> None:
         """
@@ -137,7 +145,7 @@ class SiamesePreTrainer:
         if self.contrastive_loss_type == 'binary':
             loss = 0.5 * (labels * distance ** 2 + (1 - labels) * F.relu(self.loss_margin - distance) ** 2)
             loss = loss.mean()
-        elif self.contrastive_loss_type == 'linear':
+        elif self.contrastive_loss_type == 'margin':
             positive_distance = distance * labels
             negative_distance = distance * (1 - labels)
             loss = (self.loss_margin - positive_distance) + (self.loss_margin - negative_distance)
@@ -162,31 +170,85 @@ class SiamesePreTrainer:
         torch.cuda.empty_cache()
         self.model.zero_grad()
         self.model.train()
+
         training_loss = torch.tensor(0.0)
         eval_loss = torch.tensor(0.0)
+        best_model = {
+            'loss': float('inf'),
+            'batch': -1,
+            'epoch': -1,
+            'strategy': self.save_best_strategy
+        }
+
         for epoch in tqdm(range(self.epochs)):
             for i in tqdm(range(0, len(self.train_dataset), self.batch_size)):
+                batch_index = i // self.batch_size
                 base_language_sentences, target_language_sentences, labels = self.train_dataset. \
                     get_batch(i, i + self.batch_size)
-                logging.info(f"Training on batch {i // self.batch_size}")
+                logging.info(f"Training on batch {batch_index}")
                 distance, distance_matrix = self.forward(base_language_sentences, target_language_sentences)
                 training_loss = self.calculate_contrastive_loss(distance, distance_matrix, labels)
-                logging.info(
-                    f"Epoch {epoch} Batch {i // self.batch_size} Training Loss: {training_loss.item()}")
+                logging.info(f"Epoch {epoch} Batch {batch_index} Training Loss: {training_loss.item()}")
+
+                if self.save_best_strategy == 'train' and training_loss.item() < best_model['loss']:
+                    best_model['loss'] = training_loss.item()
+                    best_model['batch'] = batch_index
+                    best_model['epoch'] = epoch
+
                 if self.eval_strategy == 'batch' and self.eval_dataset is not None:
                     eval_loss = self.evaluate(self.eval_dataset)
-                    logging.info(
-                        f"Epoch {epoch} Batch {i // self.batch_size} Evaluation Loss: {eval_loss.item()}")
+                    logging.info(f"Epoch {epoch} Batch {batch_index} Evaluation Loss: {eval_loss.item()}")
+                    if self.save_best_strategy == 'eval' and eval_loss.item() < best_model['loss']:
+                        best_model['loss'] = eval_loss.item()
+                        best_model['batch'] = batch_index
+                        best_model['epoch'] = epoch
+
                 if self.save_strategy == 'batch':
-                    self.create_checkpoint(training_loss, eval_loss, epoch, i // self.batch_size)
+                    self.create_checkpoint(training_loss, eval_loss, epoch, batch_index)
+
+                if self.use_tensorboard:
+                    self.writer.add_scalar('Training Loss', training_loss.item(),
+                                           epoch * self.num_batches + batch_index)
+                    if self.eval_strategy == 'batch' and self.eval_dataset is not None:
+                        self.writer.add_scalar('Evaluation Loss', eval_loss.item(),
+                                               epoch * self.num_batches + batch_index)
+                    self.writer.flush()
+
                 training_loss.backward()
                 self.optimizer.step()
             logging.info(f"Epoch {epoch} Training Loss: {training_loss.item()}")
+
             if self.eval_strategy == 'epoch' and self.eval_dataset is not None:
                 eval_loss = self.evaluate(self.eval_dataset)
                 logging.info(f"Epoch {epoch} Evaluation Loss: {eval_loss.item()}")
+                if self.save_best_strategy == 'eval' and eval_loss.item() < best_model['loss']:
+                    best_model['loss'] = eval_loss.item()
+                    best_model['batch'] = batch_index
+                    best_model['epoch'] = epoch
+
             if self.save_strategy == 'epoch':
                 self.create_checkpoint(training_loss, eval_loss, epoch)
+
+            if self.use_tensorboard:
+                self.writer.add_scalar('Training Loss', training_loss.item(), epoch * self.num_batches + batch_index)
+                if self.eval_strategy == 'epoch' and self.eval_dataset is not None:
+                    self.writer.add_scalar('Evaluation Loss', eval_loss.item(), epoch * self.num_batches + batch_index)
+                self.writer.flush()
+
+        if self.use_tensorboard:
+            self.writer.close()
+
+        if self.save_best_model:
+            epoch = best_model['epoch']
+            batch = best_model['batch']
+            loss = best_model['loss']
+            checkpoint_path = Path(self.model_dir).joinpath(f"checkpoint-{epoch}")
+            if not checkpoint_path.exists():
+                checkpoint_path = Path(self.model_dir).joinpath(f"checkpoint-{epoch}-{batch}")
+            if not checkpoint_path.exists():
+                raise ValueError(f"Could not find best model checkpoint {checkpoint_path}")
+            self.model = CalBERT.load(checkpoint_path)
+            self.model.save(Path(self.model_dir.joinpath(f"best-model-{loss}")))
 
     def forward(self, base_language_sentences: list, target_language_sentences: list) -> \
             tuple[torch.Tensor, torch.Tensor]:
@@ -259,13 +321,14 @@ class SiamesePreTrainer:
             'epoch': epoch,
             'learning_rate': self.learning_rate,
             'training_loss': training_loss.item(),
-            'eval_loss': eval_loss.item() if self.eval_dataset is not None else None
         }
+        if self.eval_dataset is not None:
+            data['eval_loss'] = eval_loss.item()
         if batch is not None:
             data['batch'] = batch
-        self.save_trainer(checkpoint_directory, data)
+        self.save_trainer_config(checkpoint_directory, data)
 
-    def save_trainer(self, path: Union[str, Path], data: dict = None) -> None:
+    def save_trainer_config(self, path: Union[str, Path], data: dict = None) -> None:
         """
         Saves the Trainer object to the provided path
 
@@ -277,15 +340,36 @@ class SiamesePreTrainer:
         if not save_directory.exists():
             raise ValueError(f"Path {path} does not exist")
         save_directory = save_directory.joinpath('trainer.pt')
-        if data is None:
-            data = {
-                'optimizer_state_dict': self.optimizer.state_dict(),
-                'learning_rate': self.learning_rate,
-            }
-        else:
-            data['learning_rate'] = self.learning_rate
-            data['optimizer_state_dict'] = self.optimizer.state_dict()
+        data = dict() if data is None else data
+        data['learning_rate'] = self.learning_rate
+        data['optimizer_state_dict'] = self.optimizer.state_dict()
+        # data['params'] = self.__dict__
         torch.save(data, save_directory)
+
+    def load_checkpoint(self, checkpoint_directory: Path) -> None:
+        """
+        Loads a checkpoint from the provided directory
+
+        :param checkpoint_directory: The directory containing the checkpoint
+        :return: None
+        """
+        self.model = CalBERT.load(checkpoint_directory)
+        self.load_trainer_config(checkpoint_directory)
+
+    def load_trainer_config(self, path: Union[str, Path]) -> None:
+        """
+        Loads a Trainer configuration from the provided path
+
+        :param path: The path to load the Trainer from
+        :return: The SiamesePreTrainer object
+        """
+        save_directory = Path(path)
+        if not save_directory.exists():
+            raise ValueError(f"Path {path} does not exist")
+        save_directory = save_directory.joinpath('trainer.pt')
+        trainer_dict = torch.load(save_directory)
+        self.learning_rate = trainer_dict['learning_rate']
+        self.optimizer.load_state_dict(trainer_dict['optimizer_state_dict'])
 
     def save_model(self, path: Union[str, Path]) -> None:
         """

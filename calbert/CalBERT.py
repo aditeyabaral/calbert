@@ -263,13 +263,13 @@ class CalBERT(nn.Module):
             self.tokenizer.save_pretrained(path)
 
     @staticmethod
-    def load(path: Union[Path, str], model_path: Union[str, None] = None) -> 'CalBERT':
+    def load(path: Union[Path, str], transformer_path: Union[str, None] = None) -> 'CalBERT':
         """
         Loads the CalBERT Siamese Network model.
 
         :param path: The path to the CalBERT model. If this is a directory, ensure that it contains the calbert.pt file
         and the config.json to load the Transformer. If this is a file, it should be the calbert.pt file.
-        :param model_path: The path to the Transformer model. If None, the model is loaded from the path using the
+        :param transformer_path: The path to the Transformer model. If None, the model is loaded from the path using the
         config.json.
         :return: The loaded CalBERT Siamese Network model.
         """
@@ -282,13 +282,13 @@ class CalBERT(nn.Module):
                     'exists.')
             with open(config_path, 'r') as f:
                 config = json.load(f)
-            model_path = config['_name_or_path']
+            transformer_path = config['_name_or_path']
             path = path.joinpath('calbert.pt')
-        elif model_path is None:
+        elif transformer_path is None:
             raise ValueError(
                 'Invalid Transformer model name or path. Please provide a valid argument to load the model.')
         else:
             pass
-        model = CalBERT(model_path)
+        model = CalBERT(transformer_path)
         model.load_state_dict(torch.load(path))
         return model
