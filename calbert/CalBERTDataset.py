@@ -12,8 +12,7 @@ class CalBERTDataset(Dataset):
     def __init__(self, base_language_sentences: list[str], target_language_sentences: list[str], labels: float = None,
                  negative_sampling: bool = False, negative_sampling_size: float = 0.5, negative_sampling_count: int = 1,
                  negative_sampling_type: str = 'target', min_count: int = 10, shuffle: bool = True):
-        """
-        Create a CalBERTDataset from a list of base language sentences and target language sentences.
+        """Create a CalBERTDataset from a list of base language sentences and target language sentences.
 
         :param base_language_sentences: Sentences in the base language
         :param target_language_sentences: Sentences in the target (code-mixed) language
@@ -53,16 +52,14 @@ class CalBERTDataset(Dataset):
         self.compute_vocabulary(self.min_count)
 
     def __len__(self) -> int:
-        """
-        Returns the total number of examples in the dataset.
+        """Returns the total number of examples in the dataset.
 
         :return: Number of examples in the dataset
         """
         return self.total_examples
 
     def __getitem__(self, idx: int) -> tuple[str, str, float]:
-        """
-        Obtain the base language sentence, target language sentence, and label at the given index in the dataset.
+        """Obtain the base language sentence, target language sentence, and label at the given index in the dataset.
 
         :param idx: Index of the example in the dataset
         :return: A tuple of base language sentence, target language sentence, and label at the given index
@@ -70,8 +67,7 @@ class CalBERTDataset(Dataset):
         return self.base_language_sentences[idx], self.target_language_sentences[idx], self.labels[idx]
 
     def sample_negative_examples(self, sampling: str = 'target') -> None:
-        """
-        Sample negative examples from the dataset for each positive example.
+        """Sample negative examples from the dataset for each positive example.
 
         :param sampling: Whether to sample from the base language or the target language or both
         :return: None
@@ -115,8 +111,7 @@ class CalBERTDataset(Dataset):
             self.total_examples = len(self.base_language_sentences)
 
     def compute_vocabulary(self, min_count: int = None) -> list[str]:
-        """
-        Compute the vocabulary of the dataset by finding tokens appearing atleast min_count times.
+        """Compute the vocabulary of the dataset by finding tokens appearing atleast min_count times.
 
         :param min_count: Minimum frequency of a token in the dataset to be included in the vocabulary
         :return: List of tokens in the dataset appearing atleast min_count times
@@ -138,28 +133,24 @@ class CalBERTDataset(Dataset):
         return self.tokens
 
     def get_tokens(self) -> list[str]:
-        """
-        Returns the vocabulary of the dataset computed by compute_vocabulary.
+        """Returns the vocabulary of the dataset computed by compute_vocabulary.
 
         :return: List of tokens in vocabulary
         """
         return self.tokens
 
     def get_batch(self, start: int, end: int) -> tuple[list[str], list[str], torch.Tensor]:
-        """
-        Returns a batch of examples from the dataset between the given start and end indices.
+        """Returns a batch of examples from the dataset between the given start and end indices.
 
         :param start: Start index of the batch in the dataset
         :param end: End index of the batch in the dataset
-        :return: A tuple of base language sentences, target language sentences, and labels between the given start and
-        end indices
+        :return: A tuple of base language sentences, target language sentences, and labels between the given start and end indices
         """
         return self.base_language_sentences[start:end], self.target_language_sentences[start:end], self.labels[
                                                                                                    start:end]
 
     def save(self, path: Union[str, Path]) -> None:
-        """
-        Save the dataset object to the given path.
+        """Save the dataset object to the given path.
 
         :param path: Path to save the dataset object
         :return: None
@@ -168,8 +159,7 @@ class CalBERTDataset(Dataset):
 
     @staticmethod
     def load(path: Union[str, Path]) -> 'CalBERTDataset':
-        """
-        Load a CalBertDataset object from the given path.
+        """Load a CalBertDataset object from the given path.
 
         :param path: Path to load the dataset object
         :return: CalBertDataset object

@@ -12,8 +12,7 @@ from transformers import AutoModel, AutoTokenizer
 class CalBERT(nn.Module):
     def __init__(self, model_path: str, num_pooling_layers: int = 1, pooling_method: str = 'mean',
                  device: str = 'cpu'):
-        """
-        Initialize CalBERT model for Siamese Pre-training.
+        """Initialize CalBERT model for Siamese Pre-training.
 
         :param model_path: Path to the Transformer model and Tokenizer to use for CalBERT.
         :param num_pooling_layers: Number of pooling layers to use.
@@ -34,8 +33,7 @@ class CalBERT(nn.Module):
                 (self.transformers_model.config.hidden_size, 1))
 
     def add_tokens_to_tokenizer(self, tokens: list[str]) -> int:
-        """
-        Add new tokens to the CalBERT Tokenizer.
+        """Add new tokens to the CalBERT Tokenizer.
 
         :param tokens: List of tokens to add to the Tokenizer.
         :return: New vocabulary size of the Tokenizer
@@ -46,8 +44,7 @@ class CalBERT(nn.Module):
         return new_vocabulary_size
 
     def encode(self, sentence: str) -> dict[str:torch.Tensor]:
-        """
-        Encode a sentence using the CalBERT Tokenizer
+        """Encode a sentence using the CalBERT Tokenizer
 
         :param sentence: Sentence to encode.
         :return: Dictionary containing the input ids, attention mask and token type ids.
@@ -61,8 +58,7 @@ class CalBERT(nn.Module):
         return encoding
 
     def batch_encode(self, sentences: list[str]) -> dict[str:torch.Tensor]:
-        """
-        Encode a list of sentences using the CalBERT Tokenizer.
+        """Encode a list of sentences using the CalBERT Tokenizer.
 
         :param sentences: List of sentences to encode.
         :return: Dictionary containing the input ids, attention mask and token type ids.
@@ -78,8 +74,7 @@ class CalBERT(nn.Module):
         return encodings
 
     def embed(self, encoding: dict[str:torch.Tensor]) -> torch.Tensor:
-        """
-        Returns the embedding representation of an encoding.
+        """Returns the embedding representation of an encoding.
 
         :param encoding: Dictionary containing the input ids, attention mask and token type ids.
         :return: Embedding representation of the sentence.
@@ -98,8 +93,7 @@ class CalBERT(nn.Module):
         return embeddings
 
     def sentence_embedding(self, sentence: str, pooling: bool = False) -> torch.Tensor:
-        """
-        Returns the sentence embedding of a sentence.
+        """Returns the sentence embedding of a sentence.
 
         :param sentence: Sentence to embed.
         :param pooling: Whether to pool the embedding.
@@ -112,8 +106,7 @@ class CalBERT(nn.Module):
         return embedding
 
     def batch_sentence_embedding(self, sentences: list[str], pooling: bool = False) -> torch.Tensor:
-        """
-        Returns the sentence embedding of a batch of sentences.
+        """Returns the sentence embedding of a batch of sentences.
 
         :param sentences: List of sentences to embed.
         :param pooling: Whether to pool the embedding.
@@ -128,8 +121,7 @@ class CalBERT(nn.Module):
         return embeddings
 
     def pooling(self, weights: torch.Tensor) -> torch.Tensor:
-        """
-        Returns the pooled representation of a batch of weights.
+        """Returns the pooled representation of a batch of weights.
 
         :param weights: Batch of weights to pool.
         :return: Pooled representation of the batch of weights.
@@ -144,8 +136,7 @@ class CalBERT(nn.Module):
 
     def embedding_distance(self, embedding1: torch.Tensor, embedding2: torch.Tensor, metric: str = 'cosine') -> \
             tuple[torch.Tensor, torch.Tensor]:
-        """
-        Returns the distance between two embeddings defined by the metric.
+        """Returns the distance between two embeddings defined by the metric.
 
         :param embedding1: First embedding.
         :param embedding2: Second embedding.
@@ -176,8 +167,7 @@ class CalBERT(nn.Module):
 
     def embedding_similarity(self, embedding1: torch.Tensor, embedding2: torch.Tensor) -> \
             tuple[torch.Tensor, torch.Tensor]:
-        """
-        Returns the similarity between two embeddings.
+        """Returns the similarity between two embeddings.
 
         :param embedding1: First embedding.
         :param embedding2: Second embedding.
@@ -190,52 +180,42 @@ class CalBERT(nn.Module):
 
     def distance(self, sentence1: str, sentence2: str, metric='cosine', pooling: bool = False) -> \
             tuple[torch.Tensor, torch.Tensor]:
-        """
-        Returns the distance between two sentences.
+        """Returns the distance between two sentences.
 
         :param sentence1: First sentence.
         :param sentence2: Second sentence.
-        :param metric: Metric to use for distance. Can be 'cosine', 'euclidean' or 'manhattan'.
-        :param pooling: Whether to pool the embedding.  If True, the embedding is pooled before calculating the
-        distance.
-        :return:
+        :param metric: Metric to use for distance. Can be `cosine`, `euclidean` or `manhattan`.
+        :param pooling: Whether to pool the embedding.  If True, the embedding is pooled before calculating the distance.
         """
         embedding1 = self.sentence_embedding(sentence1, pooling=pooling)
         embedding2 = self.sentence_embedding(sentence2, pooling=pooling)
         return self.embedding_distance(embedding1, embedding2, metric)
 
     def similarity(self, sentence1: str, sentence2: str, pooling: bool = False) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Returns the similarity between two sentences.
+        """Returns the similarity between two sentences.
 
         :param sentence1: First sentence.
         :param sentence2: Second sentence.
-        :param pooling: Whether to pool the embedding.  If True, the embedding is pooled before calculating the
-        similarity.
-        :return:
+        :param pooling: Whether to pool the embedding.  If True, the embedding is pooled before calculating the similarity.
         """
         embedding1 = self.sentence_embedding(sentence1, pooling=pooling)
         embedding2 = self.sentence_embedding(sentence2, pooling=pooling)
         return self.embedding_similarity(embedding1, embedding2)
 
     def forward(self, sentences: list[str], pooling: bool = False) -> torch.Tensor:
-        """
-        Returns the sentence embedding of a batch of sentences.
+        """Returns the sentence embedding of a batch of sentences.
 
         :param sentences: List of sentences to embed.
         :param pooling: Whether to pool the embedding.
-        :return:
         """
         return self.batch_sentence_embedding(sentences, pooling)
 
     def save(self, path: Union[Path, str], save_pretrained: bool = True, save_tokenizer: bool = True) -> None:
-        """
-        Saves the CalBERT Siamese Network model
+        """Saves the CalBERT Siamese Network model
 
         :param path: The directory path in which to save the model.
         :param save_pretrained: Whether to save the Transformer separately.
-        :param save_tokenizer: Whether to save the Tokenizer for the Transformer separately. Applicable only
-        if save_pretrained is True.
+        :param save_tokenizer: Whether to save the Tokenizer for the Transformer separately. Applicable only if save_pretrained is True.
         :return: None
         """
         save_directory = Path(path)
@@ -246,8 +226,7 @@ class CalBERT(nn.Module):
             self.save_pretrained(save_directory, save_tokenizer)
 
     def save_pretrained(self, path: Union[Path, str], save_tokenizer: bool = True) -> None:
-        """
-        Invokes the base Transformer save_pretrained method to save the model and Tokenizer.
+        """Invokes the base Transformer save_pretrained method to save the model and Tokenizer.
 
         :param path: The directory path in which to save the Transformer and Tokenizer
         :param save_tokenizer: Whether to save the Tokenizer.
@@ -264,13 +243,10 @@ class CalBERT(nn.Module):
 
     @staticmethod
     def load(path: Union[Path, str], transformer_path: Union[str, None] = None) -> 'CalBERT':
-        """
-        Loads the CalBERT Siamese Network model.
+        """Loads the CalBERT Siamese Network model.
 
-        :param path: The path to the CalBERT model. If this is a directory, ensure that it contains the calbert.pt file
-        and the config.json to load the Transformer. If this is a file, it should be the calbert.pt file.
-        :param transformer_path: The path to the Transformer model. If None, the model is loaded from the path using the
-        config.json.
+        :param path: The path to the CalBERT model. If this is a directory, ensure that it contains the calbert.py file and the config.json to load the Transformer. If this is a file, it should be the calbert.pt file.
+        :param transformer_path: The path to the Transformer model. If None, the model is loaded from the path using the config.json.
         :return: The loaded CalBERT Siamese Network model.
         """
         path = Path(path)

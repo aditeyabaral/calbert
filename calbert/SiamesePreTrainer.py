@@ -162,8 +162,7 @@ class SiamesePreTrainer:
         """
         Perform the Siamese Pre-training
 
-        :param kwargs: Keyword arguments for the pre-training. Uses the same arguments as the SiamesePreTrainer
-        constructor
+        :param kwargs: Keyword arguments for the pre-training. Uses the same arguments as the SiamesePreTrainer constructor
         :return: None
         """
         self.parse_training_args(kwargs)
@@ -277,8 +276,7 @@ class SiamesePreTrainer:
         """
         Evaluates the model on the given dataset
 
-        :param eval_dataset: The dataset to evaluate on. If None, the model will be evaluated on the eval dataset passed
-        to the constructor
+        :param eval_dataset: The dataset to evaluate on. If None, the model will be evaluated on the eval dataset passed to the constructor
         :return: The evaluation loss
         """
         self.model.eval()
