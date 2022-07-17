@@ -10,7 +10,6 @@ CalBERT
    :maxdepth: 2
    :caption: Contents:
 
-   modules
    calbert
 
 This repository contains the source code

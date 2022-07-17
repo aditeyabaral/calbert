@@ -5,4 +5,3 @@ calbert
    :maxdepth: 4
 
    calbert
-   setup
