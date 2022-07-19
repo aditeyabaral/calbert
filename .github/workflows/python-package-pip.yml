@@ -1,4 +1,4 @@
-name: Python Package using Conda
+name: Python Package using Pip
 
 on: [push, pull_request]
 
@@ -16,14 +16,9 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Add conda to system path
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-#        conda env update --file environment.yml --name base
-        pip install -r requirements.txt
+        pip install -e .
     - name: Lint with flake8
       run: |
         pip install flake8

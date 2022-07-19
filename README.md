@@ -38,7 +38,8 @@ install the package.
 
 # Getting Started
 
-Read our detailed module documentation [here](https://calbert.readthedocs.io/en/latest/)
+You can read the [docs](https://calbert.readthedocs.io/en/latest/) to learn more about how to train CalBERT for your own
+use case.
 
 The following example shows you how to use CalBERT to obtain sentence embeddings.
 

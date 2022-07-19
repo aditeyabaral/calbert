@@ -14,9 +14,13 @@ logging.basicConfig(
 # Dataset args
 parser = argparse.ArgumentParser("Pre-train a Transformer using CalBERT")
 parser.add_argument("-dt", "--training-data", type=str, required=True, help="Path to the data file")
-parser.add_argument("-ul", "--unlabeled", action='store_true', required=True, help="Whether the data is unlabeled")
+parser.add_argument("-ult", "--unlabeled-training", action='store_true', required=True,
+                    help="Whether the training data is unlabeled")
+parser.add_argument("--de", "--evaluation-data", type=str, required=False, help="Path to the evaluation data file")
+parser.add_argument("-ule", "--unlabeled-evaluation", action='store_true', required=False,
+                    help="Whether the evaluation data is unlabeled")
 parser.add_argument("-ns", "--negative-sampling", action='store_true', required=False, default=False,
-                    help="Whether to use negative sampling")
+                    help="Whether to use negative sampling for training data")
 parser.add_argument("-nss", "--negative-sampling-size", type=float, required=False, default=0.5,
                     help="Percentage of dataset to use for negative sampling")
 parser.add_argument("-nsc", "--negative-sampling-count", type=int, required=False, default=1,
@@ -56,26 +60,32 @@ parser.add_argument("-lm", "--loss-margin", type=float, required=False, default=
 parser.add_argument("-bs", "--batch-size", type=int, required=False, default=32, help="Batch size")
 parser.add_argument("-sbm", "--save-best-model", action='store_true', required=False, default=False,
                     help="Whether to save the best model at the end of pre-training")
+parser.add_argument("-sbs", "--save-best-strategy", type=str, required=False, default="epoch",
+                    choices=["epoch", "batch"], help="Save best model strategy to use")
 parser.add_argument("-oc", "--optimizer-class", type=str, required=False, default="adam",
                     choices=["adam", "sgd", "adagrad", "adadelta", "rmsprop"], help="Optimizer class to use")
 parser.add_argument("-op", "--optimizer-path", type=str, required=False, default=None,
                     help="Path to the optimizer state dict to load")
-parser.add_argument("-dir", "--save-dir", type=str, required=False, default="./saved_models",
+parser.add_argument("-dir", "--model-dir", type=str, required=False, default="./saved_models",
                     help="Directory to save the model")
+parser.add_argument("--tb", "--tensorboard", action='store_true', required=False, default=False,
+                    help="Whether to use tensorboard for logging")
+parser.add_argument("--tb-dir", "--tensorboard-log-dir", type=str, required=False, default="./tensorboard",
+                    help="Directory to save tensorboard logs")
 parser.add_argument("-d", "--device", type=str, required=False, default="cuda", choices=["cuda", "cpu"],
                     help="Device to use")
 
 args = parser.parse_args()
 
-# Read dataset
-with open(args.training_data, 'r', encoding = "utf-8") as training_data_file:
+# Read training dataset
+with open(args.training_data, 'r', encoding="utf-8") as training_data_file:
     train_df = pd.read_csv(training_data_file)
-base_language_sentences = train_df['base_language_sentences'].tolist()
-target_language_sentences = train_df['target_language_sentences'].tolist()
+base_language_sentences_train = train_df['base_language_sentences'].tolist()
+target_language_sentences_train = train_df['target_language_sentences'].tolist()
 labels = train_df['label'].tolist() if not args.unlabeled else None
 train_dataset = CalBERTDataset(
-    base_language_sentences=base_language_sentences,
-    target_language_sentences=target_language_sentences,
+    base_language_sentences=base_language_sentences_train,
+    target_language_sentences=target_language_sentences_train,
     labels=labels,
     negative_sampling=args.negative_sampling,
     negative_sampling_size=args.negative_sampling_size,
@@ -85,6 +95,27 @@ train_dataset = CalBERTDataset(
     shuffle=args.shuffle,
 )
 
+# Read evaluation dataset
+if args.evaluation_data is not None:
+    with open(args.evaluation_data, 'r', encoding="utf-8") as evaluation_data_file:
+        eval_df = pd.read_csv(evaluation_data_file)
+    base_language_sentences_eval = eval_df['base_language_sentences'].tolist()
+    target_language_sentences_eval = eval_df['target_language_sentences'].tolist()
+    labels = eval_df['label'].tolist() if not args.unlabeled_evaluation else None
+    eval_dataset = CalBERTDataset(
+        base_language_sentences=base_language_sentences_eval,
+        target_language_sentences=target_language_sentences_eval,
+        labels=labels,
+        negative_sampling=args.unlabeled_evaluation,
+        negative_sampling_size=args.negative_sampling_size,
+        negative_sampling_count=args.negative_sampling_count,
+        negative_sampling_type=args.negative_sampling_type,
+        min_count=args.min_count,
+        shuffle=args.shuffle,
+    )
+else:
+    eval_dataset = None
+
 # Initialise CalBERT
 model = CalBERT(
     model_path=args.model,
@@ -93,12 +124,14 @@ model = CalBERT(
     device=args.device
 )
 
-# Initialise Trainer
+# Create new tokenizer
+model.train_new_tokenizer(base_language_sentences_train + target_language_sentences_train)
 
+# Initialise Trainer
 trainer = SiamesePreTrainer(
     model=model,
     train_dataset=train_dataset,
-    eval_dataset=None,
+    eval_dataset=eval_dataset,
     eval_strategy=args.evaluation_strategy,
     save_strategy=args.save_strategy,
     learning_rate=args.learning_rate,
@@ -110,9 +143,12 @@ trainer = SiamesePreTrainer(
     loss_margin=args.loss_margin,
     batch_size=args.batch_size,
     save_best_model=args.save_best_model,
+    save_best_strategy=args.save_best_strategy,
     optimizer_class=args.optimizer_class,
     optimizer_path=args.optimizer_path,
-    model_dir=args.save_dir,
+    model_dir=args.model_dir,
+    use_tensorboard=args.use_tensorboard,
+    tensorboard_log_path=args.tensorboard_log_dir,
     device=args.device
 )
 

@@ -13,7 +13,8 @@ setuptools.setup(
     description="Code-mixed Adaptive Language representations using BERT",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/aditeyabaral/calbert",
+    url="https://pypi.org/project/calbert/",
+    download_url="https://github.com/aditeyabaral/calbert",
     license="MIT",
     packages=setuptools.find_packages(),
     install_requires=[
