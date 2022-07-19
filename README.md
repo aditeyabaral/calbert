@@ -38,7 +38,7 @@ install the package.
 
 # Getting Started
 
-Detailed documentation coming soon.
+Read our detailed module documentation [here](https://calbert.readthedocs.io/en/latest/)
 
 The following example shows you how to use CalBERT to obtain sentence embeddings.
 
