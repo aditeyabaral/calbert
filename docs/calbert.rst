@@ -7,14 +7,15 @@ Submodules
 calbert.CalBERT module
 ----------------------
 
-.. autoclass:: calbert.CalBERT
+.. automodule:: calbert.CalBERT
    :members:
    :undoc-members:
+   :show-inheritance:
 
 calbert.CalBERTDataset module
 -----------------------------
 
-.. autoclass:: calbert.CalBERTDataset
+.. automodule:: calbert.CalBERTDataset
    :members:
    :undoc-members:
    :show-inheritance:
@@ -26,3 +27,4 @@ calbert.SiamesePreTrainer module
    :members:
    :undoc-members:
    :show-inheritance:
+
