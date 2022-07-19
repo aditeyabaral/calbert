@@ -6,7 +6,7 @@ with open("README.md", "r") as f:
 setuptools.setup(
     name="calbert",
     version="1.0.0",
-    author="Aditeya Baral <aditeya.baral@gmail.com>, Aronya Baksy <abaksy@gmail.com>, Ansh Sarkar <anshsarkar1@gmail.com>, Deeksha D <deekshad132@gmail.com>",
+    author="Aditeya Baral",
     author_email="aditeya.baral@gmail.com",
     maintainer="Aronya Baksy",
     maintainer_email="abaksy@gmail.com",
@@ -14,6 +14,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/aditeyabaral/calbert",
+    license="MIT",
     packages=setuptools.find_packages(),
     install_requires=[
         "tqdm==4.64.0",

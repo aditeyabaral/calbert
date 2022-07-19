@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Union, List, Tuple, Dict
 
 import torch
 import torch.nn as nn
@@ -32,7 +32,7 @@ class CalBERT(nn.Module):
                  1)) if self.pooling_method == 'mean' else nn.AdaptiveMaxPool2d(
                 (self.transformers_model.config.hidden_size, 1))
 
-    def add_tokens_to_tokenizer(self, tokens: list[str]) -> int:
+    def add_tokens_to_tokenizer(self, tokens: List[str]) -> int:
         """Add new tokens to the CalBERT Tokenizer.
 
         :param tokens: List of tokens to add to the Tokenizer.
@@ -43,7 +43,17 @@ class CalBERT(nn.Module):
         self.transformers_model.resize_token_embeddings(new_vocabulary_size)
         return new_vocabulary_size
 
-    def encode(self, sentence: str) -> dict[str:torch.Tensor]:
+    def train_new_tokenizer(self, sentences: List[str]) -> int:
+        """
+        Train a new tokenizer on a list of sentences.
+        :param sentences: List of sentences to train the tokenizer on.
+        :return: New vocabulary size of the tokenizer.
+        """
+        self.tokenizer = self.tokenizer.train_new_from_iterator([sentences], 30522)
+        self.transformers_model.resize_token_embeddings(len(self.tokenizer))
+        return len(self.tokenizer)
+
+    def encode(self, sentence: str) -> Dict[str:torch.Tensor]:
         """Encode a sentence using the CalBERT Tokenizer
 
         :param sentence: Sentence to encode.
@@ -57,7 +67,7 @@ class CalBERT(nn.Module):
             return_tensors='pt').to(self.device)
         return encoding
 
-    def batch_encode(self, sentences: list[str]) -> dict[str:torch.Tensor]:
+    def batch_encode(self, sentences: List[str]) -> Dict[str:torch.Tensor]:
         """Encode a list of sentences using the CalBERT Tokenizer.
 
         :param sentences: List of sentences to encode.
@@ -73,7 +83,7 @@ class CalBERT(nn.Module):
             return_tensors='pt').to(self.device)
         return encodings
 
-    def embed(self, encoding: dict[str:torch.Tensor]) -> torch.Tensor:
+    def embed(self, encoding: Dict[str:torch.Tensor]) -> torch.Tensor:
         """Returns the embedding representation of an encoding.
 
         :param encoding: Dictionary containing the input ids, attention mask and token type ids.
@@ -82,7 +92,7 @@ class CalBERT(nn.Module):
         embedding = self.transformers_model(**encoding).last_hidden_state
         return embedding
 
-    def batch_embed(self, encodings: dict[str:torch.Tensor]) -> torch.Tensor:
+    def batch_embed(self, encodings: Dict[str:torch.Tensor]) -> torch.Tensor:
         """
         Returns the embedding representation of a batch of encodings.
 
@@ -105,7 +115,7 @@ class CalBERT(nn.Module):
             embedding = self.pooling(embedding)
         return embedding
 
-    def batch_sentence_embedding(self, sentences: list[str], pooling: bool = False) -> torch.Tensor:
+    def batch_sentence_embedding(self, sentences: List[str], pooling: bool = False) -> torch.Tensor:
         """Returns the sentence embedding of a batch of sentences.
 
         :param sentences: List of sentences to embed.
@@ -135,7 +145,7 @@ class CalBERT(nn.Module):
             return weights
 
     def embedding_distance(self, embedding1: torch.Tensor, embedding2: torch.Tensor, metric: str = 'cosine') -> \
-            tuple[torch.Tensor, torch.Tensor]:
+            Tuple[torch.Tensor, torch.Tensor]:
         """Returns the distance between two embeddings defined by the metric.
 
         :param embedding1: First embedding.
@@ -166,7 +176,7 @@ class CalBERT(nn.Module):
         return distance, distance_matrix
 
     def embedding_similarity(self, embedding1: torch.Tensor, embedding2: torch.Tensor) -> \
-            tuple[torch.Tensor, torch.Tensor]:
+            Tuple[torch.Tensor, torch.Tensor]:
         """Returns the similarity between two embeddings.
 
         :param embedding1: First embedding.
@@ -179,7 +189,7 @@ class CalBERT(nn.Module):
         return similarity, similarity_matrix
 
     def distance(self, sentence1: str, sentence2: str, metric='cosine', pooling: bool = False) -> \
-            tuple[torch.Tensor, torch.Tensor]:
+            Tuple[torch.Tensor, torch.Tensor]:
         """Returns the distance between two sentences.
 
         :param sentence1: First sentence.
@@ -191,7 +201,7 @@ class CalBERT(nn.Module):
         embedding2 = self.sentence_embedding(sentence2, pooling=pooling)
         return self.embedding_distance(embedding1, embedding2, metric)
 
-    def similarity(self, sentence1: str, sentence2: str, pooling: bool = False) -> tuple[torch.Tensor, torch.Tensor]:
+    def similarity(self, sentence1: str, sentence2: str, pooling: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
         """Returns the similarity between two sentences.
 
         :param sentence1: First sentence.
@@ -202,7 +212,7 @@ class CalBERT(nn.Module):
         embedding2 = self.sentence_embedding(sentence2, pooling=pooling)
         return self.embedding_similarity(embedding1, embedding2)
 
-    def forward(self, sentences: list[str], pooling: bool = False) -> torch.Tensor:
+    def forward(self, sentences: List[str], pooling: bool = False) -> torch.Tensor:
         """Returns the sentence embedding of a batch of sentences.
 
         :param sentences: List of sentences to embed.

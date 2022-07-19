@@ -1,7 +1,7 @@
 import random
 from collections import Counter
 from pathlib import Path
-from typing import Union
+from typing import Union, List, Tuple
 
 import torch
 from torch.utils.data import Dataset
@@ -9,7 +9,7 @@ from tqdm.auto import tqdm
 
 
 class CalBERTDataset(Dataset):
-    def __init__(self, base_language_sentences: list[str], target_language_sentences: list[str], labels: float = None,
+    def __init__(self, base_language_sentences: List[str], target_language_sentences: List[str], labels: float = None,
                  negative_sampling: bool = False, negative_sampling_size: float = 0.5, negative_sampling_count: int = 1,
                  negative_sampling_type: str = 'target', min_count: int = 10, shuffle: bool = True):
         """Create a CalBERTDataset from a list of base language sentences and target language sentences.
@@ -58,7 +58,7 @@ class CalBERTDataset(Dataset):
         """
         return self.total_examples
 
-    def __getitem__(self, idx: int) -> tuple[str, str, float]:
+    def __getitem__(self, idx: int) -> Tuple[str, str, float]:
         """Obtain the base language sentence, target language sentence, and label at the given index in the dataset.
 
         :param idx: Index of the example in the dataset
@@ -110,7 +110,7 @@ class CalBERTDataset(Dataset):
             self.base_language_sentences, self.target_language_sentences, self.labels = zip(*new_examples)
             self.total_examples = len(self.base_language_sentences)
 
-    def compute_vocabulary(self, min_count: int = None) -> list[str]:
+    def compute_vocabulary(self, min_count: int = None) -> List[str]:
         """Compute the vocabulary of the dataset by finding tokens appearing atleast min_count times.
 
         :param min_count: Minimum frequency of a token in the dataset to be included in the vocabulary
@@ -132,14 +132,14 @@ class CalBERTDataset(Dataset):
         self.tokens = list(self.tokens)
         return self.tokens
 
-    def get_tokens(self) -> list[str]:
+    def get_tokens(self) -> List[str]:
         """Returns the vocabulary of the dataset computed by compute_vocabulary.
 
         :return: List of tokens in vocabulary
         """
         return self.tokens
 
-    def get_batch(self, start: int, end: int) -> tuple[list[str], list[str], torch.Tensor]:
+    def get_batch(self, start: int, end: int) -> Tuple[List[str], List[str], torch.Tensor]:
         """Returns a batch of examples from the dataset between the given start and end indices.
 
         :param start: Start index of the batch in the dataset

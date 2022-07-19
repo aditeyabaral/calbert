@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Union, List, Tuple, Dict
 
 import torch
 import torch.nn.functional as F
@@ -97,7 +97,7 @@ class SiamesePreTrainer:
         if optimizer_path is not None:
             self.optimizer.load_state_dict(torch.load(optimizer_path))
 
-    def parse_training_args(self, args: dict[str, Union[str, int, float, Path]]) -> None:
+    def parse_training_args(self, args: Dict[str, Union[str, int, float, Path]]) -> None:
         """
         Parse the training arguments
 
@@ -249,8 +249,8 @@ class SiamesePreTrainer:
             self.model = CalBERT.load(checkpoint_path)
             self.model.save(Path(self.model_dir.joinpath(f"best-model-{loss}")))
 
-    def forward(self, base_language_sentences: list, target_language_sentences: list) -> \
-            tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, base_language_sentences: List[str], target_language_sentences: List[str]) -> \
+            Tuple[torch.Tensor, torch.Tensor]:
         """
         Performs a single forward pass of the model and computes the distance between the two embeddings
 
@@ -326,7 +326,7 @@ class SiamesePreTrainer:
             data['batch'] = batch
         self.save_trainer_config(checkpoint_directory, data)
 
-    def save_trainer_config(self, path: Union[str, Path], data: dict = None) -> None:
+    def save_trainer_config(self, path: Union[str, Path], data: Dict = None) -> None:
         """
         Saves the Trainer object to the provided path
 
