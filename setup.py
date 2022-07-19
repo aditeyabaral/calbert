@@ -1,8 +1,5 @@
 import setuptools
 
-with open("README.md", "r") as f:
-    long_description = f.read()
-
 setuptools.setup(
     name="calbert",
     version="1.0.0",
@@ -11,19 +8,30 @@ setuptools.setup(
     maintainer="Aronya Baksy",
     maintainer_email="abaksy@gmail.com",
     description="Code-mixed Adaptive Language representations using BERT",
-    long_description=long_description,
+    long_description=open("README.md", "r").read(),
     long_description_content_type="text/markdown",
-    url="https://pypi.org/project/calbert/",
-    download_url="https://github.com/aditeyabaral/calbert",
+    keywords="NLP deep learning transformer pytorch BERT",
+    url="https://github.com/aditeyabaral/calbert",
+    download_url="https://pypi.org/project/calbert/",
+    python_requires=">=3.6.0",
     license="MIT",
     packages=setuptools.find_packages(),
     install_requires=[
+        "torch==1.12.0",
         "tqdm==4.64.0",
         "transformers==4.20.1"
     ],
     classifiers=[
-        "Programming Language :: Python :: 3.9",
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Education",
+        "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-    ]
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    ],
 )

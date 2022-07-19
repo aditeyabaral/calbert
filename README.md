@@ -19,17 +19,19 @@ is currently one of the few models available for Indian code-mixing such as Hing
 
 We recommend `Python 3.9` or higher for CalBERT.
 
-## PyTorch with CUDA
+## Install PyTorch
 
-If you want to use a GPU/ CUDA, you must install PyTorch with the matching CUDA Version. Follow 
-[PyTorch - Get Started](https://pytorch.org/get-started/locally/) for further details how to install PyTorch with CUDA.
+Follow [PyTorch - Get Started](https://pytorch.org/get-started/locally/) for further details on how to install PyTorch 
+with or without CUDA.
 
-## Install with pip
+## Install CalBERT
+
+### Install with pip
    ```bash
    pip install calbert
    ```
 
-## Install from source
+### Install from source
 You can also clone the current version from the [repository](https://github.com/aditeyabaral/calbert) and then directly 
 install the package.
    ```bash
