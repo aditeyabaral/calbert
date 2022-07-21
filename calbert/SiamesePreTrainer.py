@@ -33,7 +33,7 @@ class SiamesePreTrainer:
         :param distance_metric: The distance metric to use. Either 'cosine', 'euclidean', or 'manhattan'
         :param use_contrastive_loss: Whether to use contrastive loss
         :param contrastive_loss_type: The type of contrastive loss to use. Either 'binary', 'margin', or 'simclr'
-        :param temperature: The temperature for the SimCLR contrastive loss
+        :param temperature: The temperature factor for scaling numerical terms in the contrastive loss
         :param loss_margin: The margin for the contrastive loss
         :param batch_size: The batch size
         :param save_best_model: Whether to save and load the best model at the end of the training
@@ -143,6 +143,7 @@ class SiamesePreTrainer:
             return distance.mean()
 
         if self.contrastive_loss_type == 'binary':
+            distance /= self.temperature
             loss = 0.5 * (labels * distance ** 2 + (1 - labels) * F.relu(self.loss_margin - distance) ** 2)
             loss = loss.mean()
         elif self.contrastive_loss_type == 'margin':
@@ -192,6 +193,7 @@ class SiamesePreTrainer:
                 batch_index = i // self.batch_size
                 base_language_sentences, target_language_sentences, labels = self.train_dataset. \
                     get_batch(i, i + self.batch_size)
+                labels = labels.to(self.device)
                 logging.info(f"Training on batch {batch_index}")
                 metric, matrix = self.forward(base_language_sentences, target_language_sentences)
                 training_loss = self.calculate_contrastive_loss(metric, matrix, labels)

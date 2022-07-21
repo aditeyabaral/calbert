@@ -77,41 +77,44 @@ class CalBERTDataset(Dataset):
         for example in tqdm(random.sample(current_examples, int(self.negative_sampling_size * self.total_examples))):
             translation = example[0]
             transliteration = example[1]
-            label = example[2]
-            new_examples.append((translation, transliteration, label))
 
             if sampling == 'target' or sampling == 'both':
                 sampled = False
                 random_sample_items = list()
                 while not sampled:
                     random_sample_index = random.sample(range(self.total_examples), self.negative_sampling_count)
-                    random_sample_items = [current_examples[i] for i in random_sample_index]
-                    random_sample_target_language_sentences = [self.target_language_sentences[i] for i in
-                                                               random_sample_index]
+                    random_sample_items = list()
+                    random_sample_target_language_sentences = list()
+                    for i in random_sample_index:
+                        random_sample_items.append(current_examples[i])
+                        random_sample_target_language_sentences.append(self.target_language_sentences[i])
                     if transliteration not in random_sample_target_language_sentences:
                         sampled = True
                 for sample in random_sample_items:
-                    new_examples.append((sample[0], sample[1], 0.0))
+                    new_examples.append((translation, sample[1], 0.0))
 
             if sampling == 'base' or sampling == 'both':
                 sampled = False
                 random_sample_items = list()
                 while not sampled:
                     random_sample_index = random.sample(range(self.total_examples), self.negative_sampling_count)
-                    random_sample_items = [current_examples[i] for i in random_sample_index]
-                    random_sample_base_language_sentences = [self.base_language_sentences[i] for i in
-                                                             random_sample_index]
+                    random_sample_items = list()
+                    random_sample_base_language_sentences = list()
+                    for i in random_sample_index:
+                        random_sample_items.append(current_examples[i])
+                        random_sample_base_language_sentences.append(self.base_language_sentences[i])
                     if translation not in random_sample_base_language_sentences:
                         sampled = True
                 for sample in random_sample_items:
-                    new_examples.append((sample[0], sample[1], 0.0))
+                    new_examples.append((sample[0], transliteration, 0.0))
 
-            random.shuffle(new_examples)
-            self.base_language_sentences, self.target_language_sentences, self.labels = zip(*new_examples)
-            self.base_language_sentences = list(self.base_language_sentences)
-            self.target_language_sentences = list(self.target_language_sentences)
-            self.labels = torch.tensor(self.labels)
-            self.total_examples = len(self.base_language_sentences)
+        current_examples += new_examples
+        random.shuffle(current_examples)
+        self.base_language_sentences, self.target_language_sentences, self.labels = zip(*current_examples)
+        self.base_language_sentences = list(self.base_language_sentences)
+        self.target_language_sentences = list(self.target_language_sentences)
+        self.labels = torch.tensor(self.labels)
+        self.total_examples = len(self.base_language_sentences)
 
     def compute_vocabulary(self, min_count: int = None) -> List[str]:
         """Compute the vocabulary of the dataset by finding tokens appearing atleast min_count times.

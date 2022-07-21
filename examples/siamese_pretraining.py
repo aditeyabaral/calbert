@@ -14,10 +14,10 @@ logging.basicConfig(
 # Dataset args
 parser = argparse.ArgumentParser("Pre-train a Transformer using CalBERT")
 parser.add_argument("-dt", "--training-data", type=str, required=True, help="Path to the data file")
-parser.add_argument("-ult", "--unlabeled-training", action='store_true', required=True,
+parser.add_argument("-ult", "--unlabeled-training", action='store_true', default=False,
                     help="Whether the training data is unlabeled")
 parser.add_argument("-de", "--evaluation-data", type=str, required=False, help="Path to the evaluation data file")
-parser.add_argument("-ule", "--unlabeled-evaluation", action='store_true', required=False,
+parser.add_argument("-ule", "--unlabeled-evaluation", action='store_true', default=False,
                     help="Whether the evaluation data is unlabeled")
 parser.add_argument("-ns", "--negative-sampling", action='store_true', required=False, default=False,
                     help="Whether to use negative sampling for training data")
@@ -83,7 +83,9 @@ logging.info(f"Reading training dataset from {args.training_data}")
 with open(args.training_data, 'r', encoding="utf-8") as training_data_file:
     train_df = pd.read_csv(training_data_file)
 base_language_sentences_train = train_df['base_language_sentences'].tolist()
+base_language_sentences_train = list(map(str.strip, base_language_sentences_train))
 target_language_sentences_train = train_df['target_language_sentences'].tolist()
+target_language_sentences_train = list(map(str.strip, target_language_sentences_train))
 labels = train_df['label'].tolist() if not args.unlabeled_training else None
 train_dataset = CalBERTDataset(
     base_language_sentences=base_language_sentences_train,
@@ -103,7 +105,9 @@ if args.evaluation_data is not None:
     with open(args.evaluation_data, 'r', encoding="utf-8") as evaluation_data_file:
         eval_df = pd.read_csv(evaluation_data_file)
     base_language_sentences_eval = eval_df['base_language_sentences'].tolist()
+    base_language_sentences_eval = list(map(str.strip, base_language_sentences_eval))
     target_language_sentences_eval = eval_df['target_language_sentences'].tolist()
+    target_language_sentences_eval = list(map(str.strip, target_language_sentences_eval))
     labels = eval_df['label'].tolist() if not args.unlabeled_evaluation else None
     eval_dataset = CalBERTDataset(
         base_language_sentences=base_language_sentences_eval,
@@ -130,7 +134,8 @@ model = CalBERT(
 
 # Create new tokenizer
 logging.info("Training a new tokenizer")
-model.train_new_tokenizer(base_language_sentences_train + target_language_sentences_train)
+# model.train_new_tokenizer(base_language_sentences_train + target_language_sentences_train)
+model.add_tokens_to_tokenizer(train_dataset.tokens)
 
 # Initialise Trainer
 logging.info("Initialising Siamese Pre-Trainer")
