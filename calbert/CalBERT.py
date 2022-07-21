@@ -53,7 +53,7 @@ class CalBERT(nn.Module):
         self.transformers_model.resize_token_embeddings(len(self.tokenizer))
         return len(self.tokenizer)
 
-    def encode(self, sentence: str) -> Dict[str:torch.Tensor]:
+    def encode(self, sentence: str) -> Dict[str, torch.Tensor]:
         """Encode a sentence using the CalBERT Tokenizer
 
         :param sentence: Sentence to encode.
@@ -67,7 +67,7 @@ class CalBERT(nn.Module):
             return_tensors='pt').to(self.device)
         return encoding
 
-    def batch_encode(self, sentences: List[str]) -> Dict[str:torch.Tensor]:
+    def batch_encode(self, sentences: List[str]) -> Dict[str, torch.Tensor]:
         """Encode a list of sentences using the CalBERT Tokenizer.
 
         :param sentences: List of sentences to encode.
@@ -83,7 +83,7 @@ class CalBERT(nn.Module):
             return_tensors='pt').to(self.device)
         return encodings
 
-    def embed(self, encoding: Dict[str:torch.Tensor]) -> torch.Tensor:
+    def embed(self, encoding: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Returns the embedding representation of an encoding.
 
         :param encoding: Dictionary containing the input ids, attention mask and token type ids.
@@ -92,7 +92,7 @@ class CalBERT(nn.Module):
         embedding = self.transformers_model(**encoding).last_hidden_state
         return embedding
 
-    def batch_embed(self, encodings: Dict[str:torch.Tensor]) -> torch.Tensor:
+    def batch_embed(self, encodings: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
         Returns the embedding representation of a batch of encodings.
 
@@ -110,8 +110,8 @@ class CalBERT(nn.Module):
         :return: Sentence embedding.
         """
         encoding = self.encode(sentence)
-        embedding = self.encoding_to_embedding(encoding)
-        if pooling:
+        embedding = self.embed(encoding)
+        if pooling and self.num_pooling_layers > 0:
             embedding = self.pooling(embedding)
         return embedding
 
@@ -125,7 +125,7 @@ class CalBERT(nn.Module):
         if isinstance(sentences, str):
             sentences = [sentences]
         encodings = self.batch_encode(sentences)
-        embeddings = self.batch_encoding_to_embedding(encodings)
+        embeddings = self.batch_embed(encodings)
         if pooling and self.num_pooling_layers > 0:
             embeddings = self.pooling(embeddings)
         return embeddings
@@ -154,9 +154,13 @@ class CalBERT(nn.Module):
         :return: Distance between the embeddings and the distance matrix.
         """
         if metric == 'cosine':
-            distance = 1 - F.cosine_similarity(embedding1, embedding2, dim=1)
-            embedding2 = torch.transpose(embedding2, 0, 1)
-            distance_matrix = 1 - torch.matmul(embedding1, embedding2)
+            cosine_similarity = F.cosine_similarity(embedding1, embedding2, dim=1)
+            distance = 1 - cosine_similarity
+            embedding1 = F.normalize(embedding1, dim=1)
+            embedding2 = F.normalize(embedding2, dim=1)
+            joint_embedding = torch.cat([embedding1, embedding2], dim=0)
+            joint_embedding_transposed = joint_embedding.t()
+            distance_matrix = 1 - torch.matmul(joint_embedding, joint_embedding_transposed)
         elif metric == 'euclidean':
             distance = F.pairwise_distance(embedding1, embedding2)
             distance_matrix = list()
@@ -175,7 +179,8 @@ class CalBERT(nn.Module):
             raise ValueError('Invalid metric')
         return distance, distance_matrix
 
-    def embedding_similarity(self, embedding1: torch.Tensor, embedding2: torch.Tensor) -> \
+    @staticmethod
+    def embedding_similarity(embedding1: torch.Tensor, embedding2: torch.Tensor) -> \
             Tuple[torch.Tensor, torch.Tensor]:
         """Returns the similarity between two embeddings.
 
@@ -183,12 +188,15 @@ class CalBERT(nn.Module):
         :param embedding2: Second embedding.
         :return: Similarity between the embeddings and the similarity matrix.
         """
-        similarity = F.cosine_similarity(embedding1, embedding2)
-        embedding2 = torch.transpose(embedding2, 0, 1)
-        similarity_matrix = torch.matmul(embedding1, embedding2)
+        similarity = F.cosine_similarity(embedding1, embedding2, dim=1)
+        embedding1 = F.normalize(embedding1, dim=1)
+        embedding2 = F.normalize(embedding2, dim=1)
+        joint_embedding = torch.cat([embedding1, embedding2], dim=0)
+        joint_embedding_transposed = joint_embedding.t()
+        similarity_matrix = torch.matmul(joint_embedding, joint_embedding_transposed)
         return similarity, similarity_matrix
 
-    def distance(self, sentence1: str, sentence2: str, metric='cosine', pooling: bool = False) -> \
+    def distance(self, sentence1: str, sentence2: str, metric='cosine', pooling: bool = True) -> \
             Tuple[torch.Tensor, torch.Tensor]:
         """Returns the distance between two sentences.
 
@@ -201,12 +209,12 @@ class CalBERT(nn.Module):
         embedding2 = self.sentence_embedding(sentence2, pooling=pooling)
         return self.embedding_distance(embedding1, embedding2, metric)
 
-    def similarity(self, sentence1: str, sentence2: str, pooling: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    def similarity(self, sentence1: str, sentence2: str, pooling: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
         """Returns the similarity between two sentences.
 
         :param sentence1: First sentence.
         :param sentence2: Second sentence.
-        :param pooling: Whether to pool the embedding.  If True, the embedding is pooled before calculating the similarity.
+        :param pooling: Whether to pool the embedding. If True, the embedding is pooled before calculating the similarity.
         """
         embedding1 = self.sentence_embedding(sentence1, pooling=pooling)
         embedding2 = self.sentence_embedding(sentence2, pooling=pooling)

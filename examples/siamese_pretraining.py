@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser("Pre-train a Transformer using CalBERT")
 parser.add_argument("-dt", "--training-data", type=str, required=True, help="Path to the data file")
 parser.add_argument("-ult", "--unlabeled-training", action='store_true', required=True,
                     help="Whether the training data is unlabeled")
-parser.add_argument("--de", "--evaluation-data", type=str, required=False, help="Path to the evaluation data file")
+parser.add_argument("-de", "--evaluation-data", type=str, required=False, help="Path to the evaluation data file")
 parser.add_argument("-ule", "--unlabeled-evaluation", action='store_true', required=False,
                     help="Whether the evaluation data is unlabeled")
 parser.add_argument("-ns", "--negative-sampling", action='store_true', required=False, default=False,
@@ -51,13 +51,13 @@ parser.add_argument("-ds", "--distance-metric", type=str, required=False, defaul
                     choices=["cosine", "euclidean", "manhattan"], help="Distance metric to use")
 parser.add_argument("-ucl", "--use-contrastive-loss", action='store_true', required=False, default=True,
                     help="Whether to use contrastive loss")
-parser.add_argument("-clt", "--contrastive-loss-type", type=str, required=False, default="softmax",
-                    choices=["binary", "softmax", "margin"], help="Contrastive loss type to use")
+parser.add_argument("-clt", "--contrastive-loss-type", type=str, required=False, default="simclr",
+                    choices=["binary", "simclr", "margin"], help="Contrastive loss type to use")
 parser.add_argument("-t", "--temperature", type=float, required=False, default=0.07,
-                    help="Temperature for the softmax contrastive loss")
+                    help="Temperature for the SimCLR contrastive loss")
 parser.add_argument("-lm", "--loss-margin", type=float, required=False, default=0.25,
                     help="Margin for the contrastive loss")
-parser.add_argument("-bs", "--batch-size", type=int, required=False, default=32, help="Batch size")
+parser.add_argument("-bs", "--batch-size", type=int, required=False, default=4, help="Batch size")
 parser.add_argument("-sbm", "--save-best-model", action='store_true', required=False, default=False,
                     help="Whether to save the best model at the end of pre-training")
 parser.add_argument("-sbs", "--save-best-strategy", type=str, required=False, default="epoch",
@@ -68,21 +68,23 @@ parser.add_argument("-op", "--optimizer-path", type=str, required=False, default
                     help="Path to the optimizer state dict to load")
 parser.add_argument("-dir", "--model-dir", type=str, required=False, default="./saved_models",
                     help="Directory to save the model")
-parser.add_argument("--tb", "--tensorboard", action='store_true', required=False, default=False,
+parser.add_argument("-tb", "--tensorboard", action='store_true', required=False, default=False,
                     help="Whether to use tensorboard for logging")
-parser.add_argument("--tb-dir", "--tensorboard-log-dir", type=str, required=False, default="./tensorboard",
+parser.add_argument("-tb-dir", "--tensorboard-log-dir", type=str, required=False, default="./tensorboard",
                     help="Directory to save tensorboard logs")
 parser.add_argument("-d", "--device", type=str, required=False, default="cuda", choices=["cuda", "cpu"],
                     help="Device to use")
 
 args = parser.parse_args()
+logging.debug(args)
 
 # Read training dataset
+logging.info(f"Reading training dataset from {args.training_data}")
 with open(args.training_data, 'r', encoding="utf-8") as training_data_file:
     train_df = pd.read_csv(training_data_file)
 base_language_sentences_train = train_df['base_language_sentences'].tolist()
 target_language_sentences_train = train_df['target_language_sentences'].tolist()
-labels = train_df['label'].tolist() if not args.unlabeled else None
+labels = train_df['label'].tolist() if not args.unlabeled_training else None
 train_dataset = CalBERTDataset(
     base_language_sentences=base_language_sentences_train,
     target_language_sentences=target_language_sentences_train,
@@ -97,6 +99,7 @@ train_dataset = CalBERTDataset(
 
 # Read evaluation dataset
 if args.evaluation_data is not None:
+    logging.info(f"Reading evaluation dataset from {args.evaluation_data}")
     with open(args.evaluation_data, 'r', encoding="utf-8") as evaluation_data_file:
         eval_df = pd.read_csv(evaluation_data_file)
     base_language_sentences_eval = eval_df['base_language_sentences'].tolist()
@@ -117,6 +120,7 @@ else:
     eval_dataset = None
 
 # Initialise CalBERT
+logging.info("Initialising CalBERT model")
 model = CalBERT(
     model_path=args.model,
     num_pooling_layers=args.num_pooling_layers,
@@ -125,9 +129,11 @@ model = CalBERT(
 )
 
 # Create new tokenizer
+logging.info("Training a new tokenizer")
 model.train_new_tokenizer(base_language_sentences_train + target_language_sentences_train)
 
 # Initialise Trainer
+logging.info("Initialising Siamese Pre-Trainer")
 trainer = SiamesePreTrainer(
     model=model,
     train_dataset=train_dataset,
@@ -147,11 +153,15 @@ trainer = SiamesePreTrainer(
     optimizer_class=args.optimizer_class,
     optimizer_path=args.optimizer_path,
     model_dir=args.model_dir,
-    use_tensorboard=args.use_tensorboard,
+    use_tensorboard=args.tensorboard,
     tensorboard_log_path=args.tensorboard_log_dir,
     device=args.device
 )
 
 # Train
+logging.info("Starting training")
 trainer.train()
+
+# Save final model
+logging.info("Saving final model")
 trainer.save_model('./saved_models/best_model/')

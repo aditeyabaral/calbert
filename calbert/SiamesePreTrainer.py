@@ -15,7 +15,7 @@ class SiamesePreTrainer:
     def __init__(self, model: CalBERT, train_dataset: CalBERTDataset, eval_dataset: CalBERTDataset = None,
                  eval_strategy: str = 'epoch', save_strategy: str = 'epoch', learning_rate: float = 0.01,
                  epochs: int = 20, distance_metric: str = 'cosine', use_contrastive_loss: bool = True,
-                 contrastive_loss_type: str = 'softmax', temperature: float = 0.07, loss_margin: float = 0.25,
+                 contrastive_loss_type: str = 'simclr', temperature: float = 0.02, loss_margin: float = 0.25,
                  batch_size: int = 16, save_best_model: bool = True, save_best_strategy: str = 'train',
                  optimizer_class: str = 'adam', optimizer_path: Union[str, Path] = None,
                  model_dir: Union[str, Path] = "./calbert", use_tensorboard: bool = False,
@@ -32,8 +32,8 @@ class SiamesePreTrainer:
         :param epochs: The number of epochs to train
         :param distance_metric: The distance metric to use. Either 'cosine', 'euclidean', or 'manhattan'
         :param use_contrastive_loss: Whether to use contrastive loss
-        :param contrastive_loss_type: The type of contrastive loss to use. Either 'binary', 'margin', or 'softmax'
-        :param temperature: The temperature for the softmax contrastive loss
+        :param contrastive_loss_type: The type of contrastive loss to use. Either 'binary', 'margin', or 'simclr'
+        :param temperature: The temperature for the SimCLR contrastive loss
         :param loss_margin: The margin for the contrastive loss
         :param batch_size: The batch size
         :param save_best_model: Whether to save and load the best model at the end of the training
@@ -134,8 +134,8 @@ class SiamesePreTrainer:
         """
         Computes and returns the contrastive loss for the given distance and labels
 
-        :param distance: The distance between the two embeddings
-        :param distance_matrix: The distance matrix between the two embeddings
+        :param distance: The distance between the two embeddings, In case of SimCLR, this is the similarity between the embeddings
+        :param distance_matrix: The distance matrix between the two embeddings. In case of SimCLR, this is the similarity matrix
         :param labels: The labels for the contrastive loss
         :return: The contrastive loss
         """
@@ -150,9 +150,17 @@ class SiamesePreTrainer:
             negative_distance = distance * (1 - labels)
             loss = (self.loss_margin - positive_distance) + (self.loss_margin - negative_distance)
             loss = loss.mean()
-        elif self.contrastive_loss_type == 'softmax':
+        elif self.contrastive_loss_type == 'simclr':
             distance_matrix /= self.temperature
-            loss = - F.log_softmax(distance_matrix).sum()
+            positive_examples_1 = torch.diag(distance_matrix, self.batch_size)
+            positive_examples_2 = torch.diag(distance_matrix, -self.batch_size)
+            positive_examples = torch.cat([positive_examples_1, positive_examples_2], dim=0)
+            mask = (~torch.eye(self.batch_size * 2, self.batch_size * 2, dtype=torch.bool)).to(self.device)
+            numerator = torch.exp(positive_examples)
+            denominator = (mask * torch.exp(distance_matrix)).sum(dim=1)
+            softmax = numerator / denominator
+            loss = - torch.log(softmax)
+            loss = loss.mean()
         else:
             raise ValueError(f"Contrastive loss type {self.contrastive_loss_type} not supported")
 
@@ -185,8 +193,8 @@ class SiamesePreTrainer:
                 base_language_sentences, target_language_sentences, labels = self.train_dataset. \
                     get_batch(i, i + self.batch_size)
                 logging.info(f"Training on batch {batch_index}")
-                distance, distance_matrix = self.forward(base_language_sentences, target_language_sentences)
-                training_loss = self.calculate_contrastive_loss(distance, distance_matrix, labels)
+                metric, matrix = self.forward(base_language_sentences, target_language_sentences)
+                training_loss = self.calculate_contrastive_loss(metric, matrix, labels)
                 logging.info(f"Epoch {epoch} Batch {batch_index} Training Loss: {training_loss.item()}")
 
                 if self.save_best_strategy == 'train' and training_loss.item() < best_model['loss']:
@@ -268,9 +276,20 @@ class SiamesePreTrainer:
         target_language_input = self.model.pooling(target_language_input)
         target_language_input = target_language_input.squeeze(-1)
 
-        distance, distance_matrix = self.model.embedding_distance(base_language_input, target_language_input,
-                                                                  metric=self.distance_metric)
-        return distance, distance_matrix
+        if self.contrastive_loss_type == 'simclr':
+            metric, matrix = self.model.embedding_similarity(
+                base_language_input,
+                target_language_input
+            )
+
+        else:
+            metric, matrix = self.model.embedding_distance(
+                base_language_input,
+                target_language_input,
+                metric=self.distance_metric
+            )
+
+        return metric, matrix
 
     def evaluate(self, eval_dataset: CalBERTDataset = None) -> torch.Tensor:
         """

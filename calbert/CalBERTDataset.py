@@ -108,6 +108,9 @@ class CalBERTDataset(Dataset):
 
             random.shuffle(new_examples)
             self.base_language_sentences, self.target_language_sentences, self.labels = zip(*new_examples)
+            self.base_language_sentences = list(self.base_language_sentences)
+            self.target_language_sentences = list(self.target_language_sentences)
+            self.labels = torch.tensor(self.labels)
             self.total_examples = len(self.base_language_sentences)
 
     def compute_vocabulary(self, min_count: int = None) -> List[str]:

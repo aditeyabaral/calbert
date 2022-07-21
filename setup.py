@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="calbert",
-    version="1.0.0",
+    version="1.0.2",
     author="Aditeya Baral",
     author_email="aditeya.baral@gmail.com",
     maintainer="Aronya Baksy",
@@ -13,7 +13,7 @@ setuptools.setup(
     keywords="NLP deep learning transformer pytorch BERT",
     url="https://github.com/aditeyabaral/calbert",
     download_url="https://pypi.org/project/calbert/",
-    python_requires=">=3.6.0",
+    python_requires=">=3.7.0",
     license="MIT",
     packages=setuptools.find_packages(),
     install_requires=[
