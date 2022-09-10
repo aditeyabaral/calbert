@@ -49,13 +49,11 @@ parser.add_argument("-lr", "--learning-rate", type=float, required=False, defaul
 parser.add_argument("-ep", "--epochs", type=int, required=False, default=20, help="Number of epochs")
 parser.add_argument("-ds", "--distance-metric", type=str, required=False, default="cosine",
                     choices=["cosine", "euclidean", "manhattan"], help="Distance metric to use")
-parser.add_argument("-ucl", "--use-contrastive-loss", action='store_true', required=False, default=True,
-                    help="Whether to use contrastive loss")
-parser.add_argument("-clt", "--contrastive-loss-type", type=str, required=False, default="simclr",
-                    choices=["binary", "simclr", "margin"], help="Contrastive loss type to use")
+parser.add_argument("-lm", "--loss-metric", type=str, required=False, default="simclr",
+                    choices=["distance", "hinge", "cosine", "bce", "mae", "mse", "contrastive", "softmargin", "simclr", "kldiv"], help="Loss metric to use")
 parser.add_argument("-t", "--temperature", type=float, required=False, default=0.07,
                     help="Temperature for the SimCLR contrastive loss")
-parser.add_argument("-lm", "--loss-margin", type=float, required=False, default=0.25,
+parser.add_argument("-lmg", "--loss-margin", type=float, required=False, default=0.25,
                     help="Margin for the contrastive loss")
 parser.add_argument("-bs", "--batch-size", type=int, required=False, default=4, help="Batch size")
 parser.add_argument("-sbm", "--save-best-model", action='store_true', required=False, default=False,
@@ -127,7 +125,7 @@ else:
 logging.info("Initialising CalBERT model")
 model = CalBERT(
     model_path=args.model,
-    num_pooling_layers=args.num_pooling_layers,
+    num_pooling_layers=3,#args.num_pooling_layers,
     pooling_method=args.pooling_method,
     device=args.device
 )

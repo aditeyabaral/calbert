@@ -14,9 +14,9 @@ from .CalBERTDataset import CalBERTDataset
 class SiamesePreTrainer:
     def __init__(self, model: CalBERT, train_dataset: CalBERTDataset, eval_dataset: CalBERTDataset = None,
                  eval_strategy: str = 'epoch', save_strategy: str = 'epoch', learning_rate: float = 0.01,
-                 epochs: int = 20, distance_metric: str = 'cosine', use_contrastive_loss: bool = True,
-                 contrastive_loss_type: str = 'simclr', temperature: float = 0.02, loss_margin: float = 0.25,
-                 batch_size: int = 16, save_best_model: bool = True, save_best_strategy: str = 'train',
+                 epochs: int = 20, distance_metric: str = 'cosine', loss_metric: str = 'simclr', 
+                 temperature: float = 0.02, loss_margin: float = 0.25, batch_size: int = 16, 
+                 save_best_model: bool = True, save_best_strategy: str = 'train',
                  optimizer_class: str = 'adam', optimizer_path: Union[str, Path] = None,
                  model_dir: Union[str, Path] = "./calbert", use_tensorboard: bool = False,
                  tensorboard_log_path: str = "./tensorboard_logs", device: str = 'cpu'):
@@ -31,8 +31,7 @@ class SiamesePreTrainer:
         :param learning_rate: The learning rate
         :param epochs: The number of epochs to train
         :param distance_metric: The distance metric to use. Either 'cosine', 'euclidean', or 'manhattan'
-        :param use_contrastive_loss: Whether to use contrastive loss
-        :param contrastive_loss_type: The type of contrastive loss to use. Either 'binary', 'margin', or 'simclr'
+        :param loss_metric: The type of contrastive loss to use. Either 'binary', 'margin', or 'simclr'
         :param temperature: The temperature factor for scaling numerical terms in the contrastive loss
         :param loss_margin: The margin for the contrastive loss
         :param batch_size: The batch size
@@ -53,8 +52,7 @@ class SiamesePreTrainer:
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.distance_metric = distance_metric
-        self.use_contrastive_loss = use_contrastive_loss
-        self.contrastive_loss_type = contrastive_loss_type
+        self.loss_metric = loss_metric
         self.temperature = temperature
         self.loss_margin = loss_margin
         self.batch_size = batch_size
@@ -116,8 +114,8 @@ class SiamesePreTrainer:
             self.batch_size = args['batch_size']
         if 'distance_metric' in args:
             self.distance_metric = args['distance_metric']
-        if 'use_contrastive_loss' in args:
-            self.use_contrastive_loss = args['use_contrastive_loss']
+        if 'loss_metric' in args:
+            self.loss_metric = args['loss_metric']
         if 'loss_margin' in args:
             self.loss_margin = args['loss_margin']
         if 'eval_strategy' in args:
@@ -129,41 +127,82 @@ class SiamesePreTrainer:
         if 'model_dir' in args:
             self.model_dir = args['model_dir']
 
-    def calculate_contrastive_loss(self, distance: torch.Tensor, distance_matrix: torch.Tensor = None,
-                                   labels: torch.Tensor = None) -> torch.Tensor:
+    def calculate_loss(self, base_language_embedding: torch.Tensor, target_language_embedding: torch.Tensor,
+                       labels: torch.Tensor = None, scores: torch.Tensor=None,
+                       scores_matrix: torch.Tensor = None) -> torch.Tensor:
         """
         Computes and returns the contrastive loss for the given distance and labels
 
-        :param distance: The distance between the two embeddings, In case of SimCLR, this is the similarity between the embeddings
-        :param distance_matrix: The distance matrix between the two embeddings. In case of SimCLR, this is the similarity matrix
-        :param labels: The labels for the contrastive loss
-        :return: The contrastive loss
+        :param base_language_embedding: The base language embedding
+        :param target_language_embedding: The target language embedding
+        :param labels: The labels for the pairs of sentences
+        :param scores: The distance or similarity scores for the pairs of sentences
+        :param scores_matrix: The distance or similarity matrix for the pairs of sentences
+        :return: The loss for the batch
         """
-        if not self.use_contrastive_loss:
-            return distance.mean()
+        if self.loss_metric == 'distance':
+            positive_pairs = scores[labels > 0]
+            negative_pairs = scores[labels <= 0]
+            ones = torch.ones(negative_pairs.shape).to(self.device)
+            negative_pairs = torch.div(ones, negative_pairs)
+            losses = torch.cat([positive_pairs, negative_pairs])
+            loss = losses.mean()
 
-        if self.contrastive_loss_type == 'binary':
-            distance /= self.temperature
-            loss = 0.5 * (labels * distance ** 2 + (1 - labels) * F.relu(self.loss_margin - distance) ** 2)
+        elif self.loss_metric == 'hinge':
+            # labels = F.relu(labels).round()
+            labels = labels * 2 - 1
+            loss = F.hinge_embedding_loss(base_language_embedding, target_language_embedding, labels, margin=self.loss_margin)
+
+        elif self.loss_metric == 'cosine':
+            # labels = F.relu(labels).round()
+            labels = labels * 2 - 1
+            loss = F.cosine_embedding_loss(base_language_embedding, target_language_embedding, labels, margin=self.loss_margin)
+
+        elif self.loss_metric == 'bce':
+            # labels = F.relu(labels).round()
+            scores = F.relu(scores)
+            loss = F.binary_cross_entropy(scores, labels)
+
+        elif self.loss_metric == 'mae':
+            # labels = F.relu(labels).round()
+            labels = labels * 2 - 1
+            loss = F.l1_loss(scores, labels)
+
+        elif self.loss_metric == 'mse':
+            # labels = F.relu(labels).round()
+            labels = labels * 2 - 1
+            loss = F.mse_loss(scores, labels)
+
+        elif self.loss_metric == 'contrastive':
+            scores /= self.temperature
+            # labels = F.relu(labels).round()
+            loss = 0.5 * (labels * scores ** 2 + (1 - labels) * F.relu(self.loss_margin - scores) ** 2)
             loss = loss.mean()
-        elif self.contrastive_loss_type == 'margin':
-            positive_distance = distance * labels
-            negative_distance = distance * (1 - labels)
-            loss = (self.loss_margin - positive_distance) + (self.loss_margin - negative_distance)
-            loss = loss.mean()
-        elif self.contrastive_loss_type == 'simclr':
-            distance_matrix /= self.temperature
-            positive_examples_1 = torch.diag(distance_matrix, self.batch_size)
-            positive_examples_2 = torch.diag(distance_matrix, -self.batch_size)
+
+        elif self.loss_metric == 'softmargin':
+            # labels = F.relu(labels).round()
+            labels = labels * 2 - 1
+            loss = F.soft_margin_loss(scores, labels)
+
+        elif self.loss_metric == 'simclr':
+            scores_matrix /= self.temperature
+            positive_examples_1 = torch.diag(scores_matrix, self.batch_size)
+            positive_examples_2 = torch.diag(scores_matrix, -self.batch_size)
             positive_examples = torch.cat([positive_examples_1, positive_examples_2], dim=0)
             mask = (~torch.eye(self.batch_size * 2, self.batch_size * 2, dtype=torch.bool)).to(self.device)
             numerator = torch.exp(positive_examples)
-            denominator = (mask * torch.exp(distance_matrix)).sum(dim=1)
+            denominator = (mask * torch.exp(scores_matrix)).sum(dim=1)
             softmax = numerator / denominator
             loss = - torch.log(softmax)
             loss = loss.mean()
+
+        elif self.loss_metric == 'kldiv':
+            labels = F.softmax(labels, dim=-1)
+            scores = F.log_softmax(scores, dim=-1)
+            loss = F.kl_div(scores, labels, reduction='batchmean', log_target=False)
+
         else:
-            raise ValueError(f"Contrastive loss type {self.contrastive_loss_type} not supported")
+            raise ValueError(f"Contrastive loss type {self.loss_metric} not supported")
 
         return loss
 
@@ -195,8 +234,7 @@ class SiamesePreTrainer:
                     get_batch(i, i + self.batch_size)
                 labels = labels.to(self.device)
                 logging.info(f"Training on batch {batch_index}")
-                metric, matrix = self.forward(base_language_sentences, target_language_sentences)
-                training_loss = self.calculate_contrastive_loss(metric, matrix, labels)
+                training_loss = self.forward(base_language_sentences, target_language_sentences, labels)
                 logging.info(f"Epoch {epoch} Batch {batch_index} Training Loss: {training_loss.item()}")
 
                 if self.save_best_strategy == 'train' and training_loss.item() < best_model['loss']:
@@ -259,15 +297,30 @@ class SiamesePreTrainer:
             self.model = CalBERT.load(checkpoint_path)
             self.model.save(Path(self.model_dir.joinpath(f"best-model-{loss}")))
 
-    def forward(self, base_language_sentences: List[str], target_language_sentences: List[str]) -> \
-            Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, base_language_sentences: List[str], target_language_sentences: List[str], labels: torch.Tensor) -> \
+            torch.Tensor:
         """
         Performs a single forward pass of the model and computes the distance between the two embeddings
 
         :param base_language_sentences: The base language sentences
         :param target_language_sentences: The target language sentences
-        :return: The distance between the two embeddings and the distance matrix
+        :param labels: The labels for the pairs of sentences
+        :return: The loss for the batch
         """
+
+        loss_type_map = {
+            'distance': 'distance',
+            'hinge': None,
+            'cosine': None,
+            'bce': 'similarity',
+            'mae': 'similarity',
+            'mse': 'similarity',
+            'contrastive': 'distance',
+            'softmargin': 'distance',
+            'simclr': 'similarity',
+            'kldiv': 'similarity',
+        }
+
         base_language_input = self.model.batch_encode(base_language_sentences)
         base_language_input = self.model.batch_embed(base_language_input)
         base_language_input = self.model.pooling(base_language_input)
@@ -278,20 +331,31 @@ class SiamesePreTrainer:
         target_language_input = self.model.pooling(target_language_input)
         target_language_input = target_language_input.squeeze(-1)
 
-        if self.contrastive_loss_type == 'simclr':
-            metric, matrix = self.model.embedding_similarity(
+        loss_type = loss_type_map[self.loss_metric]
+
+        if loss_type == 'similarity':
+                scores, scores_matrix = self.model.embedding_similarity(
                 base_language_input,
                 target_language_input
             )
-
-        else:
-            metric, matrix = self.model.embedding_distance(
+        elif loss_type == 'distance':
+                scores, scores_matrix = self.model.embedding_distance(
                 base_language_input,
                 target_language_input,
                 metric=self.distance_metric
             )
+        else:
+            scores = torch.tensor(0.0)
+            scores_matrix = torch.tensor(0.0)
 
-        return metric, matrix
+        loss = self.calculate_loss(
+            base_language_input,
+            target_language_input,
+            labels,
+            scores,
+            scores_matrix
+        )
+        return loss
 
     def evaluate(self, eval_dataset: CalBERTDataset = None) -> torch.Tensor:
         """
@@ -303,16 +367,15 @@ class SiamesePreTrainer:
         self.model.eval()
         if eval_dataset is None:
             if self.eval_dataset is None:
-                raise ValueError("No eval dataset provided")
+                raise ValueError("No evaluation dataset provided")
             eval_dataset = self.eval_dataset
 
         base_language_sentences, target_language_sentences, labels = eval_dataset.get_batch(0, len(eval_dataset))
         base_language_sentences = torch.tensor(base_language_sentences).to(self.device)
         target_language_sentences = torch.tensor(target_language_sentences).to(self.device)
         labels = torch.tensor(labels).to(self.device)
-        distance, distance_matrix = self.forward(base_language_sentences, target_language_sentences)
-        loss = self.calculate_contrastive_loss(distance, distance_matrix, labels)
-        return loss
+        eval_loss = self.forward(base_language_sentences, target_language_sentences, labels)
+        return eval_loss
 
     def create_checkpoint(self, training_loss: torch.Tensor, eval_loss: torch.Tensor, epoch: int,
                           batch: int = None) -> None:

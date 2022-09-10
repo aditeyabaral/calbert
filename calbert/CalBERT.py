@@ -27,10 +27,11 @@ class CalBERT(nn.Module):
         self.transformers_model = AutoModel.from_pretrained(self.model_path).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
         if self.num_pooling_layers > 0:
-            self.pool = nn.AdaptiveAvgPool2d(
+            pooling_layer = nn.AdaptiveAvgPool2d(
                 (self.transformers_model.config.hidden_size,
                  1)) if self.pooling_method == 'mean' else nn.AdaptiveMaxPool2d(
                 (self.transformers_model.config.hidden_size, 1))
+            self.pool = nn.Sequential(*[pooling_layer for _ in range(self.num_pooling_layers)])
 
     def add_tokens_to_tokenizer(self, tokens: List[str]) -> int:
         """Add new tokens to the CalBERT Tokenizer.
@@ -137,8 +138,7 @@ class CalBERT(nn.Module):
         :return: Pooled representation of the batch of weights.
         """
         if self.num_pooling_layers > 0:
-            for _ in range(self.num_pooling_layers):
-                weights = self.pool(weights)
+            weights = self.pool(weights)
             return weights
         else:
             logging.warning('No pooling layers specified. Returning weights as is.')
