@@ -1,5 +1,6 @@
-import logging
 import argparse
+import logging
+
 import pandas as pd
 
 from calbert import CalBERT, CalBERTDataset, SiamesePreTrainer
@@ -50,7 +51,8 @@ parser.add_argument("-ep", "--epochs", type=int, required=False, default=20, hel
 parser.add_argument("-ds", "--distance-metric", type=str, required=False, default="cosine",
                     choices=["cosine", "euclidean", "manhattan"], help="Distance metric to use")
 parser.add_argument("-lm", "--loss-metric", type=str, required=False, default="simclr",
-                    choices=["distance", "hinge", "cosine", "bce", "mae", "mse", "contrastive", "softmargin", "simclr", "kldiv"], help="Loss metric to use")
+                    choices=["distance", "hinge", "cosine", "bce", "mae", "mse", "contrastive", "softmargin", "simclr",
+                             "kldiv"], help="Loss metric to use")
 parser.add_argument("-t", "--temperature", type=float, required=False, default=0.07,
                     help="Temperature for the SimCLR contrastive loss")
 parser.add_argument("-lmg", "--loss-margin", type=float, required=False, default=0.25,
@@ -125,7 +127,7 @@ else:
 logging.info("Initialising CalBERT model")
 model = CalBERT(
     model_path=args.model,
-    num_pooling_layers=3,#args.num_pooling_layers,
+    num_pooling_layers=3,  # args.num_pooling_layers,
     pooling_method=args.pooling_method,
     device=args.device
 )
@@ -146,7 +148,7 @@ trainer = SiamesePreTrainer(
     learning_rate=args.learning_rate,
     epochs=args.epochs,
     distance_metric=args.distance_metric,
-    loss_metric = args.loss_metric,
+    loss_metric=args.loss_metric,
     temperature=args.temperature,
     loss_margin=args.loss_margin,
     batch_size=args.batch_size,

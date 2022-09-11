@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Union, List, Tuple, Dict
+from typing import Union, List, Dict
 
 import torch
 import torch.nn.functional as F
@@ -14,8 +14,8 @@ from .CalBERTDataset import CalBERTDataset
 class SiamesePreTrainer:
     def __init__(self, model: CalBERT, train_dataset: CalBERTDataset, eval_dataset: CalBERTDataset = None,
                  eval_strategy: str = 'epoch', save_strategy: str = 'epoch', learning_rate: float = 0.01,
-                 epochs: int = 20, distance_metric: str = 'cosine', loss_metric: str = 'simclr', 
-                 temperature: float = 0.02, loss_margin: float = 0.25, batch_size: int = 16, 
+                 epochs: int = 20, distance_metric: str = 'cosine', loss_metric: str = 'simclr',
+                 temperature: float = 0.02, loss_margin: float = 0.25, batch_size: int = 16,
                  save_best_model: bool = True, save_best_strategy: str = 'train',
                  optimizer_class: str = 'adam', optimizer_path: Union[str, Path] = None,
                  model_dir: Union[str, Path] = "./calbert", use_tensorboard: bool = False,
@@ -138,7 +138,7 @@ class SiamesePreTrainer:
             self.writer = SummaryWriter(log_dir=self.tensorboard_log_path) if self.use_tensorboard else None
 
     def calculate_loss(self, base_language_embedding: torch.Tensor, target_language_embedding: torch.Tensor,
-                       labels: torch.Tensor = None, scores: torch.Tensor=None,
+                       labels: torch.Tensor = None, scores: torch.Tensor = None,
                        scores_matrix: torch.Tensor = None) -> torch.Tensor:
         """
         Computes and returns the contrastive loss for the given distance and labels
@@ -166,7 +166,8 @@ class SiamesePreTrainer:
         elif self.loss_metric == 'cosine':
             # labels = F.relu(labels).round()
             labels = labels * 2 - 1
-            loss = F.cosine_embedding_loss(base_language_embedding, target_language_embedding, labels, margin=self.loss_margin)
+            loss = F.cosine_embedding_loss(base_language_embedding, target_language_embedding, labels,
+                                           margin=self.loss_margin)
 
         elif self.loss_metric == 'bce':
             # labels = F.relu(labels).round()
@@ -344,12 +345,12 @@ class SiamesePreTrainer:
         loss_type = loss_type_map[self.loss_metric]
 
         if loss_type == 'similarity':
-                scores, scores_matrix = self.model.embedding_similarity(
+            scores, scores_matrix = self.model.embedding_similarity(
                 base_language_input,
                 target_language_input
             )
         elif loss_type == 'distance':
-                scores, scores_matrix = self.model.embedding_distance(
+            scores, scores_matrix = self.model.embedding_distance(
                 base_language_input,
                 target_language_input,
                 metric=self.distance_metric
