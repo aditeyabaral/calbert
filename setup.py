@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="calbert",
-    version="1.0.2",
+    version="1.0.3",
     author="Aditeya Baral",
     author_email="aditeya.baral@gmail.com",
     maintainer="Aronya Baksy",

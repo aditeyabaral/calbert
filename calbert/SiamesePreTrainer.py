@@ -116,6 +116,11 @@ class SiamesePreTrainer:
             self.distance_metric = args['distance_metric']
         if 'loss_metric' in args:
             self.loss_metric = args['loss_metric']
+        if 'temperature' in args:
+            self.temperature = args['temperature']
+        if 'batch_size' in args:
+            self.batch_size = args['batch_size']
+            self.num_batches = len(self.train_dataset) // self.batch_size
         if 'loss_margin' in args:
             self.loss_margin = args['loss_margin']
         if 'eval_strategy' in args:
@@ -126,6 +131,11 @@ class SiamesePreTrainer:
             self.save_best_model = args['save_best_model']
         if 'model_dir' in args:
             self.model_dir = args['model_dir']
+        if 'use_tensorboard' in args:
+            self.use_tensorboard = args['use_tensorboard']
+        if 'tensorboard_log_path' in args:
+            self.tensorboard_log_path = args['tensorboard_log_path']
+            self.writer = SummaryWriter(log_dir=self.tensorboard_log_path) if self.use_tensorboard else None
 
     def calculate_loss(self, base_language_embedding: torch.Tensor, target_language_embedding: torch.Tensor,
                        labels: torch.Tensor = None, scores: torch.Tensor=None,
@@ -151,7 +161,7 @@ class SiamesePreTrainer:
         elif self.loss_metric == 'hinge':
             # labels = F.relu(labels).round()
             labels = labels * 2 - 1
-            loss = F.hinge_embedding_loss(base_language_embedding, target_language_embedding, labels, margin=self.loss_margin)
+            loss = F.hinge_embedding_loss(scores, labels, margin=self.loss_margin)
 
         elif self.loss_metric == 'cosine':
             # labels = F.relu(labels).round()
@@ -310,7 +320,7 @@ class SiamesePreTrainer:
 
         loss_type_map = {
             'distance': 'distance',
-            'hinge': None,
+            'hinge': 'similarity',
             'cosine': None,
             'bce': 'similarity',
             'mae': 'similarity',
