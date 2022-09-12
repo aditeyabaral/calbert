@@ -159,39 +159,45 @@ class SiamesePreTrainer:
             loss = losses.mean()
 
         elif self.loss_metric == 'hinge':
-            # labels = F.relu(labels).round()
+            if not (labels >= 0).all():
+                logging.warning(f"Labels are not in the range [0, 1].")
+                # labels = F.relu(labels).round()
             labels = labels * 2 - 1
             loss = F.hinge_embedding_loss(scores, labels, margin=self.loss_margin)
 
         elif self.loss_metric == 'cosine':
-            # labels = F.relu(labels).round()
+            if not (labels >= 0).all():
+                logging.warning(f"Labels are not in the range [0, 1].")
+                # labels = F.relu(labels).round()
             labels = labels * 2 - 1
             loss = F.cosine_embedding_loss(base_language_embedding, target_language_embedding, labels,
                                            margin=self.loss_margin)
 
         elif self.loss_metric == 'bce':
-            # labels = F.relu(labels).round()
+            if not (labels >= 0).all():
+                logging.warning(f"Labels are not in the range [0, 1].")
+                # labels = F.relu(labels).round()
             scores = F.relu(scores)
             loss = F.binary_cross_entropy(scores, labels)
 
         elif self.loss_metric == 'mae':
-            # labels = F.relu(labels).round()
-            labels = labels * 2 - 1
             loss = F.l1_loss(scores, labels)
 
         elif self.loss_metric == 'mse':
-            # labels = F.relu(labels).round()
-            labels = labels * 2 - 1
             loss = F.mse_loss(scores, labels)
 
         elif self.loss_metric == 'contrastive':
             scores /= self.temperature
-            # labels = F.relu(labels).round()
+            if not (labels >= 0).all():
+                logging.warning(f"Labels are not in the range [0, 1].")
+                # labels = F.relu(labels).round()
             loss = 0.5 * (labels * scores ** 2 + (1 - labels) * F.relu(self.loss_margin - scores) ** 2)
             loss = loss.mean()
 
         elif self.loss_metric == 'softmargin':
-            # labels = F.relu(labels).round()
+            if not (labels >= 0).all():
+                logging.warning(f"Labels are not in the range [0, 1].")
+                # labels = F.relu(labels).round()
             labels = labels * 2 - 1
             loss = F.soft_margin_loss(scores, labels)
 
@@ -238,6 +244,7 @@ class SiamesePreTrainer:
             'strategy': self.save_best_strategy
         }
 
+        logging.info(f"Starting CalBERT pre-training with {self.epochs} epochs and {self.num_batches} batches")
         for epoch in tqdm(range(self.epochs)):
             for i in tqdm(range(0, len(self.train_dataset), self.batch_size)):
                 batch_index = i // self.batch_size
@@ -288,6 +295,7 @@ class SiamesePreTrainer:
                 self.create_checkpoint(training_loss, eval_loss, epoch)
 
             if self.use_tensorboard:
+                logging.info(f"Writing Tensorboard logs for epoch {epoch}")
                 self.writer.add_scalar('Training Loss', training_loss.item(), epoch * self.num_batches + batch_index)
                 if self.eval_strategy == 'epoch' and self.eval_dataset is not None:
                     self.writer.add_scalar('Evaluation Loss', eval_loss.item(), epoch * self.num_batches + batch_index)
@@ -297,6 +305,7 @@ class SiamesePreTrainer:
             self.writer.close()
 
         if self.save_best_model:
+            logging.info(f"Saving best model with loss {best_model['loss']}")
             epoch = best_model['epoch']
             batch = best_model['batch']
             loss = best_model['loss']
@@ -318,6 +327,7 @@ class SiamesePreTrainer:
         :param labels: The labels for the pairs of sentences
         :return: The loss for the batch
         """
+        logging.debug("Running a forward pass on given batch")
 
         loss_type_map = {
             'distance': 'distance',
@@ -366,6 +376,7 @@ class SiamesePreTrainer:
             scores,
             scores_matrix
         )
+        logging.debug(f"Loss on current batch: {loss.item()}")
         return loss
 
     def evaluate(self, eval_dataset: CalBERTDataset = None) -> torch.Tensor:
@@ -375,6 +386,7 @@ class SiamesePreTrainer:
         :param eval_dataset: The dataset to evaluate on. If None, the model will be evaluated on the eval dataset passed to the constructor
         :return: The evaluation loss
         """
+        logging.info(f"Attempting to evaluate model on evaluation dataset")
         self.model.eval()
         if eval_dataset is None:
             if self.eval_dataset is None:
@@ -399,6 +411,8 @@ class SiamesePreTrainer:
         :param batch: The current batch during pre-training
         :return: None
         """
+        logging.info(f"Creating checkpoint for epoch {epoch} with training loss {training_loss.item()}")
+
         save_directory = Path(self.model_dir)
         if not save_directory.exists():
             save_directory.mkdir(parents=True)
@@ -429,6 +443,7 @@ class SiamesePreTrainer:
         :param data: The data to save to the Trainer
         :return: None
         """
+        logging.info(f"Saving trainer config to {path} with data {data}")
         save_directory = Path(path)
         if not save_directory.exists():
             raise ValueError(f"Path {path} does not exist")
@@ -446,6 +461,7 @@ class SiamesePreTrainer:
         :param checkpoint_directory: The directory containing the checkpoint
         :return: None
         """
+        logging.info(f"Loading checkpoint from {checkpoint_directory}")
         self.model = CalBERT.load(checkpoint_directory)
         self.load_trainer_config(checkpoint_directory)
 
@@ -456,6 +472,7 @@ class SiamesePreTrainer:
         :param path: The path to load the Trainer from
         :return: The SiamesePreTrainer object
         """
+        logging.info(f"Loading trainer config from {path}")
         save_directory = Path(path)
         if not save_directory.exists():
             raise ValueError(f"Path {path} does not exist")
@@ -471,6 +488,7 @@ class SiamesePreTrainer:
         :param path: The path to the directory save the model in
         :return: None
         """
+        logging.info(f"Saving CalBERT model to {path}")
         save_directory = Path(path)
         if not save_directory.exists():
             raise ValueError(f"Path {path} does not exist")

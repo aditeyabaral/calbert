@@ -19,18 +19,22 @@ class CalBERT(nn.Module):
         :param pooling_method:  Method to use for pooling, either 'mean' or 'max'.
         :param device: Device to use for the model.
         """
+        logging.info(
+            f"Creating CalBERT model with args: {model_path}, {num_pooling_layers}, {pooling_method}, {device}")
         super(CalBERT, self).__init__()
         self.device = device
         self.num_pooling_layers = num_pooling_layers
         self.pooling_method = pooling_method
         self.model_path = model_path
-        self.transformers_model = AutoModel.from_pretrained(self.model_path).to(self.device)
+        logging.info(f"Loading Transformer from {model_path}")
+        self.transformer_model = AutoModel.from_pretrained(self.model_path).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
         if self.num_pooling_layers > 0:
+            logging.info(f"Creating {self.num_pooling_layers} pooling layers")
             pooling_layer = nn.AdaptiveAvgPool2d(
-                (self.transformers_model.config.hidden_size,
+                (self.transformer_model.config.hidden_size,
                  1)) if self.pooling_method == 'mean' else nn.AdaptiveMaxPool2d(
-                (self.transformers_model.config.hidden_size, 1))
+                (self.transformer_model.config.hidden_size, 1))
             self.pool = nn.Sequential(*[pooling_layer for _ in range(self.num_pooling_layers)])
 
     def add_tokens_to_tokenizer(self, tokens: List[str]) -> int:
@@ -39,9 +43,10 @@ class CalBERT(nn.Module):
         :param tokens: List of tokens to add to the Tokenizer.
         :return: New vocabulary size of the Tokenizer
         """
+        logging.info(f"Adding {len(tokens)} tokens to the tokenizer")
         self.tokenizer.add_tokens(tokens)
         new_vocabulary_size = len(self.tokenizer)
-        self.transformers_model.resize_token_embeddings(new_vocabulary_size)
+        self.transformer_model.resize_token_embeddings(new_vocabulary_size)
         return new_vocabulary_size
 
     def train_new_tokenizer(self, sentences: List[str]) -> int:
@@ -50,8 +55,9 @@ class CalBERT(nn.Module):
         :param sentences: List of sentences to train the tokenizer on.
         :return: New vocabulary size of the tokenizer.
         """
+        logging.info(f"Training new tokenizer on {len(sentences)} sentences")
         self.tokenizer = self.tokenizer.train_new_from_iterator([sentences], 30522)
-        self.transformers_model.resize_token_embeddings(len(self.tokenizer))
+        self.transformer_model.resize_token_embeddings(len(self.tokenizer))
         return len(self.tokenizer)
 
     def encode(self, sentence: str) -> Dict[str, torch.Tensor]:
@@ -75,6 +81,7 @@ class CalBERT(nn.Module):
         :return: Dictionary containing the input ids, attention mask and token type ids.
         """
         if isinstance(sentences, str):
+            logging.warning(f"Encoding a single sentence. Use encode() instead.")
             sentences = [sentences]
         encodings = self.tokenizer.batch_encode_plus(
             sentences,
@@ -90,7 +97,7 @@ class CalBERT(nn.Module):
         :param encoding: Dictionary containing the input ids, attention mask and token type ids.
         :return: Embedding representation of the sentence.
         """
-        embedding = self.transformers_model(**encoding).last_hidden_state
+        embedding = self.transformer_model(**encoding).last_hidden_state
         return embedding
 
     def batch_embed(self, encodings: Dict[str, torch.Tensor]) -> torch.Tensor:
@@ -100,7 +107,7 @@ class CalBERT(nn.Module):
         :param encodings: Dictionary containing the input ids, attention mask and token type ids.
         :return: Embedding representation of the batch of sentences.
         """
-        embeddings = self.transformers_model(**encodings).last_hidden_state
+        embeddings = self.transformer_model(**encodings).last_hidden_state
         return embeddings
 
     def sentence_embedding(self, sentence: str, pooling: bool = False) -> torch.Tensor:
@@ -124,6 +131,7 @@ class CalBERT(nn.Module):
         :return: Sentence embeddings of the batch of sentences.
         """
         if isinstance(sentences, str):
+            logging.warning(f"Embedding a single sentence. Use sentence_embedding() instead.")
             sentences = [sentences]
         encodings = self.batch_encode(sentences)
         embeddings = self.batch_embed(encodings)
@@ -212,6 +220,7 @@ class CalBERT(nn.Module):
             joint_embedding = torch.cat([embedding1, embedding2], dim=0)
             joint_embedding_transposed = joint_embedding.t()
             similarity_matrix = torch.matmul(joint_embedding, joint_embedding_transposed)
+
         elif metric == 'softcosine':
             feature_similarity_matrix = torch.matmul(embedding1.t(), embedding2)
             similarity = torch.einsum('ij,ij->i', embedding1,
@@ -223,6 +232,7 @@ class CalBERT(nn.Module):
             joint_embedding = torch.cat([embedding1, embedding2], dim=0)
             similarity_matrix = torch.matmul(joint_embedding,
                                              torch.matmul(feature_similarity_matrix, joint_embedding.t()))
+
         else:
             raise ValueError('Invalid metric')
         return similarity, similarity_matrix
@@ -258,6 +268,7 @@ class CalBERT(nn.Module):
         :param sentences: List of sentences to embed.
         :param pooling: Whether to pool the embedding.
         """
+        logging.debug(f"Running a forward pass on {len(sentences)} sentences with pooling = {pooling}")
         return self.batch_sentence_embedding(sentences, pooling)
 
     def save(self, path: Union[Path, str], save_pretrained: bool = True, save_tokenizer: bool = True) -> None:
@@ -268,6 +279,7 @@ class CalBERT(nn.Module):
         :param save_tokenizer: Whether to save the Tokenizer for the Transformer separately. Applicable only if save_pretrained is True.
         :return: None
         """
+        logging.info(f"Saving CalBERT model to {path}")
         save_directory = Path(path)
         if not save_directory.exists():
             save_directory.mkdir(parents=True)
@@ -282,12 +294,13 @@ class CalBERT(nn.Module):
         :param save_tokenizer: Whether to save the Tokenizer.
         :return:    None
         """
+        logging.info(f"Saving the pretrained Transformer to {path}")
         save_directory = Path(path)
         if not save_directory.is_dir():
             raise ValueError('Invalid path. Please provide a directory path.')
         if not save_directory.exists():
             save_directory.mkdir(parents=True)
-        self.transformers_model.save_pretrained(save_directory)
+        self.transformer_model.save_pretrained(save_directory)
         if save_tokenizer:
             self.tokenizer.save_pretrained(path)
 
@@ -299,6 +312,7 @@ class CalBERT(nn.Module):
         :param transformer_path: The path to the Transformer model. If None, the model is loaded from the path using the config.json.
         :return: The loaded CalBERT Siamese Network model.
         """
+        logging.info(f"Loading CalBERT model from {path}")
         path = Path(path)
         if path.is_dir():
             config_path = path.joinpath('config.json')

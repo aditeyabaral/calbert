@@ -1,3 +1,4 @@
+import logging
 import random
 from collections import Counter
 from pathlib import Path
@@ -24,11 +25,20 @@ class CalBERTDataset(Dataset):
         :param min_count: Minimum frequency of a token in the dataset to be included in the vocabulary
         :param shuffle: Whether to shuffle the dataset
         """
+        logging.info(f"Creating CalBERTDataset")
+        logging.debug(f"Creating CalBERTDataset with args: {locals()}")
+
         self.base_language_sentences = base_language_sentences
         self.target_language_sentences = target_language_sentences
-        self.labels = torch.tensor(labels) if labels is not None else torch.ones(len(base_language_sentences))
-        assert len(self.base_language_sentences) == len(self.target_language_sentences) == len(self.labels)
 
+        if labels is not None:
+            self.labels = torch.tensor(labels)
+            logging.info(f"Labels provided")
+        else:
+            self.labels = torch.ones(len(base_language_sentences))
+            logging.info(f"No labels provided, using 1.0 as similarity scores for examples")
+
+        assert len(self.base_language_sentences) == len(self.target_language_sentences) == len(self.labels)
         self.total_examples = len(base_language_sentences)
         self.negative_sampling = negative_sampling
         self.negative_sampling_size = negative_sampling_size
@@ -41,6 +51,7 @@ class CalBERTDataset(Dataset):
             self.sample_negative_examples(self.negative_sampling_type)
 
         if shuffle:
+            logging.info("Shuffling dataset")
             items = list(zip(self.base_language_sentences, self.target_language_sentences, self.labels))
             random.shuffle(items)
             self.base_language_sentences, self.target_language_sentences, self.labels = zip(*items)
@@ -64,6 +75,7 @@ class CalBERTDataset(Dataset):
         :param idx: Index of the example in the dataset
         :return: A tuple of base language sentence, target language sentence, and label at the given index
         """
+        logging.debug(f"Obtaining batch at index {idx}")
         return self.base_language_sentences[idx], self.target_language_sentences[idx], self.labels[idx]
 
     def sample_negative_examples(self, sampling: str = 'target') -> None:
@@ -72,6 +84,10 @@ class CalBERTDataset(Dataset):
         :param sampling: Whether to sample from the base language or the target language or both
         :return: None
         """
+        logging.info(f"Shuffling dataset with negative sampling size {self.negative_sampling_size}, "
+                     f"negative sampling count {self.negative_sampling_count}, "
+                     f"negative sampling type {self.negative_sampling_type}"
+                     )
         current_examples = list(zip(self.base_language_sentences, self.target_language_sentences, self.labels))
         new_examples = list()
         for example in tqdm(random.sample(current_examples, int(self.negative_sampling_size * self.total_examples))):
@@ -79,6 +95,7 @@ class CalBERTDataset(Dataset):
             transliteration = example[1]
 
             if sampling == 'target' or sampling == 'both':
+                logging.debug(f"Sampling negative examples from target language")
                 sampled = False
                 random_sample_items = list()
                 while not sampled:
@@ -94,6 +111,7 @@ class CalBERTDataset(Dataset):
                     new_examples.append((translation, sample[1], 0.0))
 
             if sampling == 'base' or sampling == 'both':
+                logging.debug(f"Sampling negative examples from base language")
                 sampled = False
                 random_sample_items = list()
                 while not sampled:
@@ -108,6 +126,7 @@ class CalBERTDataset(Dataset):
                 for sample in random_sample_items:
                     new_examples.append((sample[0], transliteration, 0.0))
 
+        logging.info("Adding sampled negative examples to dataset")
         current_examples += new_examples
         random.shuffle(current_examples)
         self.base_language_sentences, self.target_language_sentences, self.labels = zip(*current_examples)
@@ -122,6 +141,7 @@ class CalBERTDataset(Dataset):
         :param min_count: Minimum frequency of a token in the dataset to be included in the vocabulary
         :return: List of tokens in the dataset appearing atleast min_count times
         """
+        logging.info(f"Computing vocabulary with min_count {min_count}")
         self.min_count = min_count if min_count is not None else self.min_count
         self.tokens = set(self.tokens)
         new_tokens = list()
@@ -152,6 +172,7 @@ class CalBERTDataset(Dataset):
         :param end: End index of the batch in the dataset
         :return: A tuple of base language sentences, target language sentences, and labels between the given start and end indices
         """
+        logging.debug(f"Obtaining batch from index {start} to {end}")
         return self.base_language_sentences[start:end], self.target_language_sentences[start:end], self.labels[
                                                                                                    start:end]
 
@@ -161,6 +182,7 @@ class CalBERTDataset(Dataset):
         :param path: Path to save the dataset object
         :return: None
         """
+        logging.info(f"Saving CalBERTDataset dataset to {path}")
         torch.save(self, path)
 
     @staticmethod
@@ -170,4 +192,5 @@ class CalBERTDataset(Dataset):
         :param path: Path to load the dataset object
         :return: CalBertDataset object
         """
+        logging.info(f"Loading CalBERTDataset dataset from {path}")
         return torch.load(path)
