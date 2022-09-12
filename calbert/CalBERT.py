@@ -150,7 +150,7 @@ class CalBERT(nn.Module):
 
         :param embedding1: First embedding.
         :param embedding2: Second embedding.
-        :param metric: Metric to use for distance. Can be 'cosine', 'euclidean' or 'manhattan'.
+        :param metric: Metric to use for distance. Can be 'cosine', 'softcosine', 'euclidean' or 'manhattan'.
         :return: Distance between the embeddings and the distance matrix.
         """
         if metric == 'cosine':
@@ -161,6 +161,19 @@ class CalBERT(nn.Module):
             joint_embedding = torch.cat([embedding1, embedding2], dim=0)
             joint_embedding_transposed = joint_embedding.t()
             distance_matrix = 1 - torch.matmul(joint_embedding, joint_embedding_transposed)
+
+        elif metric == 'softcosine':
+            feature_similarity_matrix = torch.matmul(embedding1.t(), embedding2)
+            distance = 1 - torch.einsum('ij,ij->i', embedding1,
+                                        torch.matmul(feature_similarity_matrix, embedding2.t()).t()) / \
+                       torch.sqrt(torch.einsum('ij,ij->i', embedding1,
+                                               torch.matmul(feature_similarity_matrix, embedding1.t()).t()) * \
+                                  torch.einsum('ij,ij->i', embedding2,
+                                               torch.matmul(feature_similarity_matrix, embedding2.t()).t()))
+            joint_embedding = torch.cat([embedding1, embedding2], dim=0)
+            distance_matrix = 1 - torch.matmul(joint_embedding,
+                                               torch.matmul(feature_similarity_matrix, joint_embedding.t()))
+
         elif metric == 'euclidean':
             distance = F.pairwise_distance(embedding1, embedding2)
             distance_matrix = list()
@@ -168,6 +181,7 @@ class CalBERT(nn.Module):
                 for j in range(embedding2.shape[0]):
                     distance_matrix.append(F.pairwise_distance(embedding1[i], embedding2[j]))
             distance_matrix = torch.tensor(distance_matrix).to(self.device)
+
         elif metric == 'manhattan':
             distance = F.pairwise_distance(embedding1, embedding2, p=1)
             distance_matrix = list()
@@ -175,25 +189,42 @@ class CalBERT(nn.Module):
                 for j in range(embedding2.shape[0]):
                     distance_matrix.append(F.pairwise_distance(embedding1[i], embedding2[j], p=1))
             distance_matrix = torch.tensor(distance_matrix).to(self.device)
+
         else:
             raise ValueError('Invalid metric')
+
         return distance, distance_matrix
 
     @staticmethod
-    def embedding_similarity(embedding1: torch.Tensor, embedding2: torch.Tensor) -> \
+    def embedding_similarity(embedding1: torch.Tensor, embedding2: torch.Tensor, metric: str = 'cosine') -> \
             Tuple[torch.Tensor, torch.Tensor]:
         """Returns the similarity between two embeddings.
 
         :param embedding1: First embedding.
         :param embedding2: Second embedding.
+        :param metric: Metric to use for similarity. Can be 'cosine' or 'softcosine'
         :return: Similarity between the embeddings and the similarity matrix.
         """
-        similarity = F.cosine_similarity(embedding1, embedding2, dim=1)
-        embedding1 = F.normalize(embedding1, dim=1)
-        embedding2 = F.normalize(embedding2, dim=1)
-        joint_embedding = torch.cat([embedding1, embedding2], dim=0)
-        joint_embedding_transposed = joint_embedding.t()
-        similarity_matrix = torch.matmul(joint_embedding, joint_embedding_transposed)
+        if metric == 'cosine':
+            similarity = F.cosine_similarity(embedding1, embedding2, dim=1)
+            embedding1 = F.normalize(embedding1, dim=1)
+            embedding2 = F.normalize(embedding2, dim=1)
+            joint_embedding = torch.cat([embedding1, embedding2], dim=0)
+            joint_embedding_transposed = joint_embedding.t()
+            similarity_matrix = torch.matmul(joint_embedding, joint_embedding_transposed)
+        elif metric == 'softcosine':
+            feature_similarity_matrix = torch.matmul(embedding1.t(), embedding2)
+            similarity = torch.einsum('ij,ij->i', embedding1,
+                                      torch.matmul(feature_similarity_matrix, embedding2.t()).t()) / \
+                         torch.sqrt(torch.einsum('ij,ij->i', embedding1,
+                                                 torch.matmul(feature_similarity_matrix, embedding1.t()).t()) * \
+                                    torch.einsum('ij,ij->i', embedding2,
+                                                 torch.matmul(feature_similarity_matrix, embedding2.t()).t()))
+            joint_embedding = torch.cat([embedding1, embedding2], dim=0)
+            similarity_matrix = torch.matmul(joint_embedding,
+                                             torch.matmul(feature_similarity_matrix, joint_embedding.t()))
+        else:
+            raise ValueError('Invalid metric')
         return similarity, similarity_matrix
 
     def distance(self, sentence1: str, sentence2: str, metric='cosine', pooling: bool = True) -> \
@@ -209,7 +240,8 @@ class CalBERT(nn.Module):
         embedding2 = self.sentence_embedding(sentence2, pooling=pooling)
         return self.embedding_distance(embedding1, embedding2, metric)
 
-    def similarity(self, sentence1: str, sentence2: str, pooling: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
+    def similarity(self, sentence1: str, sentence2: str, pooling: bool = True, metric: str = 'cosine') -> Tuple[
+        torch.Tensor, torch.Tensor]:
         """Returns the similarity between two sentences.
 
         :param sentence1: First sentence.
@@ -218,7 +250,7 @@ class CalBERT(nn.Module):
         """
         embedding1 = self.sentence_embedding(sentence1, pooling=pooling)
         embedding2 = self.sentence_embedding(sentence2, pooling=pooling)
-        return self.embedding_similarity(embedding1, embedding2)
+        return self.embedding_similarity(embedding1, embedding2, metric)
 
     def forward(self, sentences: List[str], pooling: bool = False) -> torch.Tensor:
         """Returns the sentence embedding of a batch of sentences.

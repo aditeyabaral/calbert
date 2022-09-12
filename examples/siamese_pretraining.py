@@ -6,7 +6,7 @@ import pandas as pd
 from calbert import CalBERT, CalBERTDataset, SiamesePreTrainer
 
 logging.basicConfig(
-    level=logging.NOTSET,
+    level=logging.INFO,
     filemode="w",
     filename="./train.log",
     format="%(asctime)s - %(levelname)s - %(name)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s",
@@ -49,7 +49,7 @@ parser.add_argument("-ss", "--save-strategy", type=str, required=False, default=
 parser.add_argument("-lr", "--learning-rate", type=float, required=False, default=0.01, help="Learning rate")
 parser.add_argument("-ep", "--epochs", type=int, required=False, default=20, help="Number of epochs")
 parser.add_argument("-ds", "--distance-metric", type=str, required=False, default="cosine",
-                    choices=["cosine", "euclidean", "manhattan"], help="Distance metric to use")
+                    choices=["cosine", "softcosine", "euclidean", "manhattan"], help="Distance metric to use")
 parser.add_argument("-lm", "--loss-metric", type=str, required=False, default="simclr",
                     choices=["distance", "hinge", "cosine", "bce", "mae", "mse", "contrastive", "softmargin", "simclr",
                              "kldiv"], help="Loss metric to use")
