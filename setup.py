@@ -19,7 +19,8 @@ setuptools.setup(
     install_requires=[
         "torch==1.12.0",
         "tqdm==4.64.0",
-        "transformers==4.20.1"
+        "transformers==4.20.1",
+        "tensorboard==2.9.1"
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
