@@ -1,4 +1,4 @@
-# CalBERT - Code-mixed Apaptive Language representations using BERT
+# CalBERT - Code-mixed Adaptive Language representations using BERT
 
 This repository contains the source code
 for [CalBERT - Code-mixed Apaptive Language representations using BERT](http://ceur-ws.org/Vol-3121/short3.pdf),
