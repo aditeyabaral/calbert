@@ -1,7 +1,7 @@
 # CalBERT - Code-mixed Adaptive Language representations using BERT
 
 This repository contains the source code
-for [CalBERT - Code-mixed Apaptive Language representations using BERT](http://ceur-ws.org/Vol-3121/short3.pdf),
+for [CalBERT - Code-mixed Adaptive Language representations using BERT](http://ceur-ws.org/Vol-3121/short3.pdf),
 published at AAAI-MAKE 2022, Stanford University.
 
 CalBERT can be used to adapt existing Transformer language representations into another similar language by minimising
