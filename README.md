@@ -1,5 +1,10 @@
 # CalBERT - Code-mixed Adaptive Language representations using BERT
 
+	
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/calbert-code-mixed-adaptive-language-1/sentiment-analysis-on-iitp-product-reviews)](https://paperswithcode.com/sota/sentiment-analysis-on-iitp-product-reviews?p=calbert-code-mixed-adaptive-language-1)
+	
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/calbert-code-mixed-adaptive-language-1/sentiment-analysis-on-sail-2017)](https://paperswithcode.com/sota/sentiment-analysis-on-sail-2017?p=calbert-code-mixed-adaptive-language-1)
+
 This repository contains the source code
 for [CalBERT - Code-mixed Adaptive Language representations using BERT](http://ceur-ws.org/Vol-3121/short3.pdf),
 published at AAAI-MAKE 2022, Stanford University.
